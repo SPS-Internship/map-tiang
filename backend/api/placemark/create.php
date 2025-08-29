@@ -17,14 +17,15 @@ try {
 
     // Get POST data
     $data = json_decode(file_get_contents("php://input"));
-
+    
+    error_log(json_encode($data));
     if (!$data || !isset($data->id_project) || !isset($data->latitude) || !isset($data->longitude)) {
         echo json_encode(['success' => false, 'message' => 'Missing required fields: id_project, latitude, longitude']);
         exit;
     }
 
     $placemark->id_project = $data->id_project;
-    $placemark->nama_placemark = !empty($data->nama_placemark) 
+    $placemark->nama_placemark = isset ($data->nama_placemark) 
     ? $data->nama_placemark 
     : 'Placemark ' . date('Y-m-d H:i:s');
     $placemark->deskripsi = $data->deskripsi ?? 'Auto generated placemark';

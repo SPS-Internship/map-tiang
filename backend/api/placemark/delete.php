@@ -4,59 +4,29 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
+include_once(__DIR__ . '/../../config/database.php');
+$db = (new Database())->getConnection();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
-    echo json_encode(['success' => false, 'message' => 'Method harus DELETE']);
+    http_response_code(405); // Method not allowed
     exit;
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
-$id = intval($input['id'] ?? 0);
+$id_placemark = intval($input['id_placemark'] ?? 0);
 
-if ($id <= 0) {
-    echo json_encode(['success' => false, 'message' => 'ID tidak valid']);
+if ($id_placemark <= 0) {
+    http_response_code(400); // Bad request
     exit;
 }
 
-// Load existing placemarks
-$placemarksFile = __DIR__ . '/../../data/placemarks.json';
-$placemarks = [];
-if (file_exists($placemarksFile)) {
-    $placemarks = json_decode(file_get_contents($placemarksFile), true) ?? [];
-}
+$query = "DELETE FROM placemarks WHERE id_placemark = :id_placemark";
+$stmt = $db->prepare($query);
+$stmt->bindParam(':id_placemark', $id_placemark, PDO::PARAM_INT);
 
-// Find and remove placemark
-$found = false;
-foreach ($placemarks as $key => $placemark) {
-    if ($placemark['id'] === $id) {
-        unset($placemarks[$key]);
-        $found = true;
-        break;
-    }
-}
-
-if (!$found) {
-    echo json_encode(['success' => false, 'message' => 'Placemark tidak ditemukan']);
-    exit;
-}
-
-// Reindex array
-$placemarks = array_values($placemarks);
-
-// Save updated placemarks
-if (file_put_contents($placemarksFile, json_encode($placemarks, JSON_PRETTY_PRINT))) {
-    echo json_encode([
-        'success' => true,
-        'message' => 'Placemark berhasil dihapus'
-    ]);
+if ($stmt->execute() && $stmt->rowCount() > 0) {
+    http_response_code(200); // OK
 } else {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Gagal menghapus placemark'
-    ]);
+    http_response_code(404); // Not found
 }
 ?>

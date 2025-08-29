@@ -1,43 +1,49 @@
 <?php
+// Hentikan semua warning/notice agar tidak mengacaukan JSON
+error_reporting(0);
+ini_set('display_errors', 0);
+
+include_once '../../config/database.php';
+include_once '../../model/placemark.php';
+include_once '../../util/cors.php';
+
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+// Bersihkan buffer output sebelumnya
+ob_clean();
+
+// Pastikan method PUT
+if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
+    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'message' => 'Method harus POST']);
+// Koneksi database
+$database = new Database();
+$db = $database->getConnection();
+$placemark = new Placemark($db);
+
+// Ambil data JSON
+$data = json_decode(file_get_contents("php://input"));
+
+if (!$data || !isset($data->id_placemark)) {
+    echo json_encode(['success' => false, 'message' => 'Missing id_placemark']);
     exit;
 }
 
+// Set property
+$placemark->id_placemark = $data->id_placemark;
+$placemark->nama_placemark = $data->nama_placemark ?? '';
+
+// Jalankan update
 try {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $id_placemark   = intval($input['id_placemark'] ?? 0);
-    $nama_placemark = trim($input['nama_placemark'] ?? '');
-
-    if ($id_placemark <= 0 || $nama_placemark === '') {
-        echo json_encode(['success' => false, 'message' => 'ID atau nama tidak valid']);
-        exit;
-    }
-
-    require_once __DIR__ . '/../../config/database.php';
-    require_once __DIR__ . '/../../model/Placemark.php';
-
-    $db = (new Database())->getConnection();
-    $placemark = new Placemark($db);
-    $placemark->id_placemark   = $id_placemark;
-    $placemark->nama_placemark = $nama_placemark;
-
     if ($placemark->update()) {
-        echo json_encode(['success' => true, 'message' => 'Nama placemark berhasil diupdate']);
+        echo json_encode(['success' => true, 'message' => 'Placemark updated successfully']);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Placemark tidak ditemukan atau gagal update']);
+        echo json_encode(['success' => false, 'message' => 'Failed to update placemark']);
     }
-} catch (Throwable $e) {
-    // biar selalu JSON, walaupun ada error fatal
-    echo json_encode(['success' => false, 'message' => 'Server error: '.$e->getMessage()]);
+} catch (Exception $e) {
+    echo json_encode(['success' => false, 'message' => 'Exception: ' . $e->getMessage()]);
 }
+
+exit;

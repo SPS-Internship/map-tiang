@@ -88,16 +88,16 @@ class Placemark {
     
     // Update placemark
     public function update() {
-        $query = "UPDATE " . $this->table_name . " 
-                SET nama_placemark = ?
-                WHERE id_placemark = ?";
+        $query = "UPDATE placemark
+          SET nama_placemark=:nama_placemark
+          WHERE id_placemark=:id_placemark";
 
         $stmt = $this->conn->prepare($query);
 
-        return $stmt->execute([
-            $this->nama_placemark,
-            $this->id_placemark
-        ]);
+        $stmt->bindParam(":nama_placemark", $this->nama_placemark);
+        $stmt->bindParam(":id_placemark", $this->id_placemark);
+
+        return $stmt->execute();
     }
     
     // Verify ownership (PostgreSQL style)

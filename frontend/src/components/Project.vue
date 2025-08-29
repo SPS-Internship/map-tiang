@@ -40,7 +40,7 @@
                   <i class="fas fa-map-marker-alt"></i>
                 </div>
                 <div class="item-details">
-                  <h5>Marker {{ index + 1 }}</h5>
+                  <h5>{{ placemark.nama_placemark || `Tiang ${index + 1}` }}</h5>
                   <p class="coordinates">{{ placemark.lat.toFixed(6) }}, {{ placemark.lng.toFixed(6) }}</p>
                   <p class="address" v-if="placemark.address">{{ placemark.address }}</p>
                 </div>
@@ -149,17 +149,6 @@
       </div>
     </div>
 
-    <!-- Import Dialog -->
-    <div v-if="showImportDialog" class="modal-overlay" @click="showImportDialog = false">
-      <div class="modal-content" @click.stop>
-        <h3>Import Project</h3>
-        <input type="file" @change="importFile" accept=".json" />
-        <div class="modal-actions">
-          <button @click="showImportDialog = false" class="btn-secondary">Cancel</button>
-        </div>
-      </div>
-    </div>
-
     <!-- Instructions -->
     <div v-if="drawingPolygon" class="instructions">
       <p>
@@ -175,22 +164,6 @@
     <!-- Map -->
     <div class="map-container">
       <div id="map" style="height: 450px;"></div>
-    </div>
-    
-    <div v-if="showEditModal" class="modal-overlay">
-      <div class="modal">
-        <h3>Edit Placemark</h3>
-        <input
-          type="text"
-          v-model="editName"
-          class="input"
-          placeholder="Nama placemark"
-        />
-        <div class="modal-actions">
-          <button @click="savePlacemark">Simpan</button>
-          <button @click="cancelEdit">Batal</button>
-        </div>
-      </div>
     </div>
   </div>
 </div>
@@ -443,7 +416,6 @@ export default {
         id_project: projectId,
         name: this.currentProject ? this.currentProject.nama_project : 'Project ' + new Date().toLocaleString(),
         description: 'Project with markers and polygon data',
-        placemarks: this.placemarks,
         timestamp: new Date().toISOString()
       };
 
@@ -559,11 +531,24 @@ export default {
     async loadAllPlacemarks() {
       const result = await this.apiCall('/backend/api/placemark/read.php');
       if (result.success) {
-        console.log('Placemarks loaded:', result.data.length);
-        // Optionally show all placemarks on map
-        // result.data.forEach(placemark => {
-        //   this.addMarkerToMap(placemark.lat, placemark.lng, false);
-        // });
+        // mapping biar cocok dengan struktur di Vue
+        this.placemarks = result.data.map(p => ({
+          id_placemark: p.id_placemark,
+          nama_placemark: p.nama_placemark,
+          lat: parseFloat(p.latitude),
+          lng: parseFloat(p.longitude),
+          deskripsi: p.deskripsi,
+          created_at: p.created_at,
+        }));
+
+        console.log('Placemarks loaded:', this.placemarks);
+
+        // pasang ke map tapi jangan overwrite array
+        this.placemarks.forEach(pm => {
+          this.addMarkerToMap(pm.lat, pm.lng, false, pm.nama_placemark);
+        });
+      } else {
+        console.error('Failed to load placemarks:', result.message);
       }
     },
 
@@ -666,9 +651,9 @@ export default {
         this.placemarks.push({
           lat: lat,
           lng: lng,
-          name: `Marker ${this.placemarks.length + 1}`,
+          nama_placemark: `Tiang ${this.placemarks.length + 1}`,
           address: 'Loading address...',
-          id: Date.now()
+          id_placemark: Date.now()
         });
 
         const geocoder = new google.maps.Geocoder();
@@ -697,6 +682,12 @@ export default {
           } else {
             this.savePlacemark(lat, lng);
           }
+
+          console.log(JSON.stringify({
+            nama_placemark: this.newPlacemark.nama_placemark,
+            lat: this.newPlacemark.lat,
+            lng: this.newPlacemark.lng,
+          }))
         });
       }
 
@@ -1322,62 +1313,6 @@ export default {
       }
     },
 
-    // Edit placemark
-    async editPlacemark(index) {
-      if (this.placemarks[index]) {
-        const placemark = this.placemarks[index];
-        const newName = prompt(
-          'Edit marker name:',
-          placemark.nama_placemark || `Marker ${index + 1}`
-        );
-
-        if (newName !== null) {
-          const updatedName = newName.trim() || `Marker ${index + 1}`;
-
-          try {
-            const response = await fetch("http://localhost/project_map/backend/api/placemark/update.php", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id_placemark: placemark.id_placemark,
-                nama_placemark: updatedName,
-              }),
-            });
-
-            const result = await response.json();
-            if (result.success) {
-              this.placemarks[index].nama_placemark = updatedName;
-              alert("Nama placemark berhasil diupdate!");
-            } else {
-              alert("Gagal update: " + result.message);
-            }
-          } catch (err) {
-            console.error("Update error:", err);
-            alert("Terjadi kesalahan saat update placemark.");
-          }
-        }
-      }
-    },
-
-    // Delete placemark
-    async deletePlacemark(index) {
-      if (this.placemarks[index]) {
-        const placemark = this.placemarks[index];
-        if (confirm(`Delete marker "${placemark.name || `Marker ${index + 1}`}"?`)) {
-          // Remove from map
-          if (this.markers[index]) {
-            this.markers[index].setMap(null);
-            this.markers.splice(index, 1);
-          }
-          
-          // Remove from placemarks array
-          this.placemarks.splice(index, 1);
-          
-          // TODO: Delete from backend if needed
-        }
-      }
-    },
-
     // Load project data and populate sidebar
     async loadProjectData(projectId) {
       try {
@@ -1403,7 +1338,7 @@ export default {
               this.placemarks.push({
                 lat: parseFloat(pm.latitude),
                 lng: parseFloat(pm.longitude),
-                name: pm.nama_placemark || 'Marker',
+                name_placemark: pm.nama_placemark || 'Marker',
                 address: pm.alamat || '',
                 id: pm.id_placemark
               });
@@ -1493,80 +1428,76 @@ export default {
 
     // Edit placemark
     async editPlacemark(index) {
-      if (!this.currentProject || !this.currentProject.placemarks) {
-        console.warn("⚠️ Tidak ada project/placemark yang bisa diedit");
-        return;
-      }
+      if (!this.placemarks[index]) return;
 
-      const placemark = this.currentProject.placemarks[index];
-      if (!placemark) {
-        console.warn("⚠️ Placemark dengan index", index, "tidak ditemukan");
-        return;
-      }
-
+      const placemark = this.placemarks[index];
       const newName = prompt(
-        "Edit placemark name:",
-        placemark.nama_placemark || `Placemark ${index + 1}`
+        "Edit marker name:",
+        placemark.nama_placemark || `Marker ${index + 1}`
       );
 
       if (newName && newName.trim() !== "") {
         try {
-          console.log("Edit placemark data yang dikirim:", {
-            id_placemark: placemark.id_placemark,
-            nama_placemark: newName.trim(),
-          });
-
-          // 🔽 disini ganti fetch lamamu dengan yang ini
           const response = await fetch("http://localhost/project_map/backend/api/placemark/update.php", {
-            method: "POST",
+            method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              id_placemark: placemark.id_placemark,
+              id_placemark: placemark.id,   // <- cek key ID yg bener (id atau id_placemark)
               nama_placemark: newName.trim(),
             }),
           });
 
-          const text = await response.text();
-          console.log("Raw response backend:", text);
-
-          if (text) {
-            try {
-              const result = JSON.parse(text);
-              if (result.success) {
-                placemark.nama_placemark = newName.trim(); // update local data biar sidebar langsung berubah
-                console.log("✅ Placemark updated:", placemark);
-              } else {
-                alert("❌ Gagal update placemark: " + result.message);
-              }
-            } catch (err) {
-              console.error("❌ Error parsing JSON:", err);
-            }
+          const result = await response.json();
+          if (result.success) {
+            this.placemarks[index].nama_placemark = newName.trim(); // update langsung array yg dipakai sidebar
+            alert("Nama placemark berhasil diupdate!");
+          } else {
+            alert("Gagal update: " + result.message);
           }
         } catch (err) {
-          console.error("❌ Error update placemark:", err);
+          console.error("Update error:", err);
+          alert("Terjadi kesalahan saat update placemark.");
         }
       }
     },
 
     // Delete placemark
-    async deletePlacemark(index) {
-      if (!confirm('Delete this placemark?')) return;
-      
-      // Remove marker from map
-      if (this.markers[index]) {
-        this.markers[index].setMap(null);
-        this.markers.splice(index, 1);
+async deletePlacemark(index) {
+ const placemark = this.placemarks[index];
+  if (!placemark) return;
+
+  const confirmDelete = confirm(
+    `Delete marker "${placemark.nama_placemark || `Tiang ${index + 1}`}"?`
+  );
+  if (!confirmDelete) return;
+
+  if (placemark.id_placemark) {
+    try {
+      const result = await this.apiCall(
+        `/backend/api/placemark/delete.php?id_placemark=${placemark.id_placemark}`,
+        "DELETE"
+      );
+
+      if (result.success) {
+        console.log("Placemark deleted from DB:", placemark.id_placemark);
+
+        // ✅ hapus marker dari map & array
+        if (this.markers[index]) {
+          this.markers[index].setMap(null);
+          this.markers.splice(index, 1);
+        }
+        this.placemarks.splice(index, 1);
+      } else {
+        alert("Gagal hapus dari database: " + (result.message || "Unknown error"));
       }
-      
-      // Remove from placemarks array
-      const placemark = this.placemarks[index];
-      this.placemarks.splice(index, 1);
-      
-      // Delete from backend if has ID
-      if (placemark.id) {
-        await this.apiCall(`/backend/api/placemark/delete.php`, 'DELETE', { id: placemark.id });
-      }
-    },
+    } catch (err) {
+      console.error("Delete API error:", err);
+      alert("Error saat menghapus dari backend.");
+    }
+  } else {
+    alert("Placemark ini tidak punya ID di database!");
+  }
+},
 
     // Edit polygon
     editPolygon() {
