@@ -49,10 +49,20 @@
                 <button class="btn-action btn-focus" @click="focusOnPlacemark(index)" title="Focus">
                   <i class="fas fa-crosshairs"></i>
                 </button>
-                <button class="btn-action btn-edit" @click="editPlacemark(index)" title="Edit" >
+                <button 
+                  class="btn-action btn-edit" 
+                  @click="editPlacemark(index)" 
+                  :class="{ disabled: isViewMode }"
+                  :disabled="isViewMode"
+                  :title="isViewMode ? 'Read-only mode' : 'Edit'">
                   <i class="fas fa-edit"></i>
                 </button>
-                <button class="btn-action btn-delete" @click="deletePlacemark(index)" title="Delete">
+                <button 
+                  class="btn-action btn-delete" 
+                  @click="deletePlacemark(index)" 
+                  :class="{ disabled: isViewMode }"
+                  :disabled="isViewMode"
+                  :title="isViewMode ? 'Read-only mode' : 'Delete'">
                   <i class="fas fa-trash"></i>
                 </button>
               </div>
@@ -91,10 +101,20 @@
               <button class="btn-action btn-focus" @click="focusOnPolygon(index)" title="Focus">
                 <i class="fas fa-crosshairs"></i>
               </button>
-              <button class="btn-action btn-edit" @click="editPolygon(index)" title="Edit">
+              <button 
+                class="btn-action btn-edit" 
+                @click="editPolygon(index)" 
+                :class="{ disabled: isViewMode }"
+                :disabled="isViewMode"
+                :title="isViewMode ? 'Read-only mode' : 'Edit'">
                 <i class="fas fa-edit"></i>
               </button>
-              <button class="btn-action btn-delete" @click="deletePolygon(index)" title="Delete">
+              <button 
+                class="btn-action btn-delete" 
+                @click="deletePolygon(index)" 
+                :class="{ disabled: isViewMode }"
+                :disabled="isViewMode"
+                :title="isViewMode ? 'Read-only mode' : 'Delete'">
                 <i class="fas fa-trash"></i>
               </button>
             </div>
@@ -115,7 +135,18 @@
     </div>
 
     <!-- Toolbar -->
-    <h1>Project</h1>
+    <div v-if="isViewMode" class="mode-indicator read-only-mode">
+      <i class="fas fa-eye"></i> 
+      <span>READ-ONLY MODE</span>
+      <small>- All editing functions are disabled</small>
+    </div>
+    <div v-else class="mode-indicator edit-mode">
+      <i class="fas fa-edit"></i> 
+      <span>EDIT MODE</span>
+      <small>- Full editing capabilities enabled</small>
+    </div>
+    
+    <h1>Project {{ isViewMode ? '(Read Only)' : '' }}</h1>
     <div class="toolbar">
       <div class="toolbar-left">
         <div class="search-tools">
@@ -126,25 +157,57 @@
             placeholder="Search Location"
             @keyup.enter="searchLocation"
           />
-          <button class="btn-icon" @click="toggleAddMarker" :class="{ active: addingMarker }">
+          <button 
+            class="btn-icon" 
+            @click="toggleAddMarker" 
+            :class="{ active: addingMarker, disabled: isViewMode }"
+            :disabled="isViewMode"
+            :title="isViewMode ? 'Read-only mode' : 'Add Marker'">
             <i class="fas fa-map-marker-alt"></i>
           </button>
-          <button class="btn-icon" @click="togglePolygonMode" :class="{ active: drawingPolygon }">
+          <button 
+            class="btn-icon" 
+            @click="togglePolygonMode" 
+            :class="{ active: drawingPolygon, disabled: isViewMode }"
+            :disabled="isViewMode"
+            :title="isViewMode ? 'Read-only mode' : 'Add Polygon'">
             <i class="fas fa-project-diagram"></i>
           </button>
-          <button class="btn-icon" @click="clearPolygon" v-if="drawingPolygon || polygon">
+          <button 
+            class="btn-icon" 
+            @click="clearPolygon" 
+            v-if="drawingPolygon || polygon"
+            :class="{ disabled: isViewMode }"
+            :disabled="isViewMode"
+            :title="isViewMode ? 'Read-only mode' : 'Clear Polygon'">
             <i class="fas fa-trash"></i> Clear
           </button>
-          <button class="btn-icon" @click="finishPolygon" v-if="drawingPolygon && polygonPath.length >= 3">
+          <button 
+            class="btn-icon" 
+            @click="finishPolygon" 
+            v-if="drawingPolygon && polygonPath.length >= 3"
+            :class="{ disabled: isViewMode }"
+            :disabled="isViewMode"
+            :title="isViewMode ? 'Read-only mode' : 'Finish Polygon'">
             <i class="fas fa-check"></i> Finish
           </button>
         </div>
       </div>
       <div class="toolbar-right">
-        <button class="btn-danger" @click="showImportDialog = true">
+        <button 
+          class="btn-danger" 
+          @click="showImportDialog = true"
+          :class="{ disabled: isViewMode }"
+          :disabled="isViewMode"
+          :title="isViewMode ? 'Read-only mode' : 'Import File'">
           <i class="fas fa-file-import"></i> Import File
         </button>
-        <button class="btn-success" @click="saveProject">
+        <button 
+          class="btn-success" 
+          @click="saveProject"
+          :class="{ disabled: isViewMode }"
+          :disabled="isViewMode"
+          :title="isViewMode ? 'Read-only mode' : 'Save Project'">
           <i class="fas fa-save"></i> Save Project
         </button>
       </div>
@@ -284,7 +347,11 @@ export default {
         deskripsi: ''
       },
       editPlacemarkIndex: null,
-      editPolygonIndex: null
+      editPolygonIndex: null,
+      
+      // Mode management
+      projectMode: 'edit', // 'edit' atau 'view'
+      isReadOnly: false
     };
   },
   
@@ -324,6 +391,9 @@ export default {
       this.currentProject = JSON.parse(saved);
     }
 
+    // Set mode berdasarkan query parameter
+    this.setProjectMode();
+
     // Load project data from route parameter
     const projectId = this.$route.params.id;
     if (projectId) {
@@ -335,15 +405,46 @@ export default {
     }
   },
 
+  computed: {
+    // Computed property untuk mengecek apakah dalam mode read-only
+    isViewMode() {
+      return this.projectMode === 'view';
+    },
+    
+    // Computed property untuk button states
+    buttonClass() {
+      return this.isViewMode ? 'disabled' : '';
+    }
+  },
+
   watch: {
     '$route.params.id'(newId) {
       if (newId && this.map) {
         this.loadProjectData(newId);
       }
+    },
+    
+    // Watch untuk perubahan query parameter
+    '$route.query.mode'() {
+      this.setProjectMode();
     }
   },
 
   methods: {
+    // Set mode project berdasarkan query parameter
+    setProjectMode() {
+      const mode = this.$route.query.mode;
+      if (mode === 'view') {
+        this.projectMode = 'view';
+        this.isReadOnly = true;
+        console.log('🔒 Project set to READ-ONLY mode');
+      } else {
+        this.projectMode = 'edit';
+        this.isReadOnly = false;
+        console.log('✏️ Project set to EDIT mode');
+      }
+    },
+
     async apiCall(endpoint, method = 'GET', data = null) {
       this.loading = true;
       this.loadingMessage = 'Processing...';
@@ -464,6 +565,10 @@ export default {
 
     // Save current map state as project
     async saveProject() {
+      if (this.isViewMode) {
+        console.log('🔒 Save project disabled in read-only mode');
+        return;
+      }
       // Get current user from localStorage
       const userData = localStorage.getItem('user');
       if (!userData) {
@@ -1001,6 +1106,12 @@ export default {
 
       // Event listeners
       this.map.addListener("click", (e) => {
+        // Prevent interaction in read-only mode
+        if (this.isViewMode) {
+          console.log('🔒 Map interaction disabled in read-only mode');
+          return;
+        }
+        
         const lat = e.latLng.lat();
         const lng = e.latLng.lng();
 
@@ -1018,6 +1129,7 @@ export default {
       });
 
       this.map.addListener("dblclick", (e) => {
+        if (this.isViewMode) return;
         if (this.drawingPolygon && this.polygonPath.length >= 3) {
           e.stop();
           this.finishPolygon();
@@ -1025,6 +1137,7 @@ export default {
       });
 
       this.map.addListener("rightclick", (e) => {
+        if (this.isViewMode) return;
         if (this.drawingPolygon) {
           this.clearPolygon();
         }
@@ -1112,6 +1225,10 @@ export default {
     // =============== ORIGINAL METHODS (Updated) ===============
 
     toggleAddMarker() {
+      if (this.isViewMode) {
+        console.log('🔒 Add marker disabled in read-only mode');
+        return;
+      }
       this.addingMarker = !this.addingMarker;
       this.drawingPolygon = false;
       this.updateMapCursor();
@@ -1119,6 +1236,10 @@ export default {
     },
 
     togglePolygonMode() {
+      if (this.isViewMode) {
+        console.log('🔒 Polygon mode disabled in read-only mode');
+        return;
+      }
       if (!this.drawingPolygon) {
         this.drawingPolygon = true;
         this.addingMarker = false;
@@ -1179,6 +1300,10 @@ export default {
     },
 
     async finishPolygon() {
+      if (this.isViewMode) {
+        console.log('🔒 Finish polygon disabled in read-only mode');
+        return;
+      }
       if (this.polygonPath.length < 3) {
         alert('Minimal 3 titik diperlukan untuk membuat polygon');
         return;
@@ -1250,6 +1375,10 @@ export default {
     },
 
     clearPolygon() {
+      if (this.isViewMode) {
+        console.log('🔒 Clear polygon disabled in read-only mode');
+        return;
+      }
       this.polygonMarkers.forEach(item => {
         item.setMap(null);
       });
@@ -1511,6 +1640,10 @@ export default {
 
     // Edit placemark
     editPlacemark(index) {
+      if (this.isViewMode) {
+        console.log('🔒 Edit placemark disabled in read-only mode');
+        return;
+      }
       if (!this.placemarks[index]) return;
 
       const placemark = this.placemarks[index];
@@ -1591,6 +1724,10 @@ export default {
 
     // Delete placemark
     async deletePlacemark(index) {
+      if (this.isViewMode) {
+        console.log('🔒 Delete placemark disabled in read-only mode');
+        return;
+      }
       const placemark = this.placemarks[index];
       if (!placemark) return;
 
@@ -1634,6 +1771,10 @@ export default {
 
     // Edit polygon
     editPolygon(index) {
+      if (this.isViewMode) {
+        console.log('🔒 Edit polygon disabled in read-only mode');
+        return;
+      }
       if (index === null || !this.polygons[index]) return;
 
       const polygonData = this.polygons[index];
@@ -1694,6 +1835,10 @@ export default {
 
     // Delete polygon
     async deletePolygon(index) {
+      if (this.isViewMode) {
+        console.log('🔒 Delete polygon disabled in read-only mode');
+        return;
+      }
       if (index === null || !this.polygons[index]) return;
 
       const polygonData = this.polygons[index];
@@ -1974,6 +2119,26 @@ h1 {
   border-color: #17677E;
 }
 
+/* Disabled state untuk btn-icon */
+.btn-icon.disabled,
+.btn-icon:disabled {
+  background: #f5f5f5 !important;
+  color: #999 !important;
+  border-color: #ddd !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-icon.disabled:hover,
+.btn-icon:disabled:hover {
+  background: #f5f5f5 !important;
+  color: #999 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
 .btn-success {
   padding: 8px 6px;
   background: linear-gradient(135deg, #28a745, #20c997);
@@ -2016,6 +2181,29 @@ h1 {
   background: linear-gradient(135deg, #c82333, #dc2626);
   transform: translateY(-2px);
   box-shadow: 0 6px 15px rgba(220, 53, 69, 0.4);
+}
+
+/* Disabled state untuk btn-success dan btn-danger */
+.btn-success.disabled,
+.btn-success:disabled,
+.btn-danger.disabled,
+.btn-danger:disabled {
+  background: #ddd !important;
+  color: #999 !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-success.disabled:hover,
+.btn-success:disabled:hover,
+.btn-danger.disabled:hover,
+.btn-danger:disabled:hover {
+  background: #ddd !important;
+  color: #999 !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 .btn-secondary {
@@ -2361,6 +2549,23 @@ h1 {
   background: #D32F2F;
 }
 
+/* Disabled state untuk btn-action */
+.btn-action.disabled,
+.btn-action:disabled {
+  background: #ddd !important;
+  color: #999 !important;
+  cursor: not-allowed !important;
+  opacity: 0.5;
+  transform: none !important;
+}
+
+.btn-action.disabled:hover,
+.btn-action:disabled:hover {
+  background: #ddd !important;
+  color: #999 !important;
+  transform: none !important;
+}
+
 .empty-message {
   text-align: center;
   padding: 30px 20px;
@@ -2616,5 +2821,57 @@ input:focus {
 
 .btn-primary:hover {
   background: #45a049;
+}
+
+/* Mode Indicator Styles */
+.mode-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  margin: 10px 20px;
+  font-weight: 600;
+  border: 2px solid;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.mode-indicator i {
+  font-size: 16px;
+}
+
+.mode-indicator span {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.mode-indicator small {
+  font-size: 12px;
+  opacity: 0.8;
+  font-weight: 400;
+}
+
+.read-only-mode {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  color: #6c757d;
+  border-color: #6c757d;
+}
+
+.edit-mode {
+  background: linear-gradient(135deg, #e3f2fd, #f1f8e9);
+  color: #2e7d32;
+  border-color: #4caf50;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

@@ -438,15 +438,19 @@ export default {
 
     editProject(projectId) {
       console.log(`Edit project: ${projectId}`);
-      this.$router.push(`/project/${projectId}`);
-    },
-    viewProject(id) {
-      this.$refs.projectPage.loadProjectData(id); 
+      // Set mode edit dan navigasi ke project
+      this.$router.push({
+        path: `/project/${projectId}`,
+        query: { mode: 'edit' }
+      });
     },
 
     viewProject(projectId) {
       console.log(`View project: ${projectId}`);
-      this.$router.push(`/project/${projectId}`).then(() => {
+      // Set mode read-only dan navigasi ke project
+      this.$router.push({
+        path: `/project/${projectId}`,
+        query: { mode: 'view' }
       });
     },  
     
@@ -649,17 +653,16 @@ body {
 }
 
 .logout-icon {
-  font-size: 15px;
+  font-size: 20px;
   cursor: pointer;
-  padding: 10px 30px;
-  border-radius: 50%;
   transition: all 0.3s ease;
-  color: #17677E;
+  color: #E5EEF1;
   margin-left: auto;
 }
 
 .logout-icon:hover {
-  background: rgba(229, 238, 241, 0.1);
+  background: rgba(229, 238, 241, 0.2);
+  color: #CCD2DE;
   transform: scale(1.1);
 }
 
