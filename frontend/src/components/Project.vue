@@ -140,13 +140,8 @@
       <span>READ-ONLY MODE</span>
       <small>- All editing functions are disabled</small>
     </div>
-    <div v-else class="mode-indicator edit-mode">
-      <i class="fas fa-edit"></i> 
-      <span>EDIT MODE</span>
-      <small>- Full editing capabilities enabled</small>
-    </div>
     
-    <h1>Project {{ isViewMode ? '(Read Only)' : '' }}</h1>
+    <h1>Project {{ isViewMode ? '(Read Only)' : isCreateMode ? '(New Project)' : '' }}</h1>
     <div class="toolbar">
       <div class="toolbar-left">
         <div class="search-tools">
@@ -231,54 +226,159 @@
     </div>
 
     <!-- Edit Placemark Modal -->
-    <div v-if="showEditPlacemarkModal" class="modal-overlay" @click="closeEditPlacemarkModal">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>Edit Placemark</h3>
-          <button class="btn-close" @click="closeEditPlacemarkModal">×</button>
+    <div v-if="showEditPlacemarkModal" class="modern-modal-overlay" @click="closeEditPlacemarkModal">
+      <div class="modern-modal-content" @click.stop>
+        <div class="modern-modal-header">
+          <div class="modal-icon">
+            <i class="fas fa-map-marker-alt"></i>
+          </div>
+          <div class="modal-title-section">
+            <h3>Edit Placemark</h3>
+            <p>Modify placemark information</p>
+          </div>
+          <button class="modern-btn-close" @click="closeEditPlacemarkModal">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label>Nama Placemark:</label>
-            <input type="text" v-model="editPlacemarkData.nama_placemark" class="form-input" />
+        <div class="modern-modal-body">
+          <div class="modern-form-group">
+            <label class="modern-label">
+              <i class="fas fa-tag"></i>
+              Nama Placemark
+            </label>
+            <input 
+              type="text" 
+              v-model="editPlacemarkData.nama_placemark" 
+              class="modern-form-input"
+              placeholder="Enter placemark name..."
+            />
           </div>
-          <div class="form-group">
-            <label>Deskripsi:</label>
-            <textarea v-model="editPlacemarkData.deskripsi" class="form-textarea"></textarea>
+          <div class="modern-form-group">
+            <label class="modern-label">
+              <i class="fas fa-file-alt"></i>
+              Deskripsi
+            </label>
+            <textarea 
+              v-model="editPlacemarkData.deskripsi" 
+              class="modern-form-textarea"
+              placeholder="Enter description..."
+              rows="3"
+            ></textarea>
           </div>
-          <div class="form-group">
-            <label>Alamat:</label>
-            <input type="text" v-model="editPlacemarkData.alamat" class="form-input" />
+          <div class="modern-form-group">
+            <label class="modern-label">
+              <i class="fas fa-map-marked-alt"></i>
+              Alamat
+            </label>
+            <input 
+              type="text" 
+              v-model="editPlacemarkData.alamat" 
+              class="modern-form-input"
+              placeholder="Enter address..."
+            />
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="closeEditPlacemarkModal">Cancel</button>
-          <button class="btn-primary" @click="updatePlacemark">Update</button>
+        <div class="modern-modal-footer">
+          <button class="modern-btn-primary" @click="updatePlacemark">
+            Update
+          </button>
         </div>
       </div>
     </div>
 
     <!-- Edit Polygon Modal -->
-    <div v-if="showEditPolygonModal" class="modal-overlay" @click="closeEditPolygonModal">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>Edit Polygon</h3>
-          <button class="btn-close" @click="closeEditPolygonModal">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label>Nama Polygon:</label>
-            <input type="text" v-model="editPolygonData.nama_polygon" class="form-input" />
+    <div v-if="showEditPolygonModal" class="modern-modal-overlay" @click="closeEditPolygonModal">
+      <div class="modern-modal-content" @click.stop>
+        <div class="modern-modal-header">
+          <div class="modal-icon">
+            <i class="fas fa-project-diagram"></i>
           </div>
-          <div class="form-group">
-            <label>Deskripsi:</label>
-            <textarea v-model="editPolygonData.deskripsi" class="form-textarea"></textarea>
+          <div class="modal-title-section">
+            <h3>Edit Polygon</h3>
+            <p>Modify polygon information</p>
+          </div>
+          <button class="modern-btn-close" @click="closeEditPolygonModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modern-modal-body">
+          <div class="modern-form-group">
+            <label class="modern-label">
+              <i class="fas fa-tag"></i>
+              Nama Polygon
+            </label>
+            <input 
+              type="text" 
+              v-model="editPolygonData.nama_polygon" 
+              class="modern-form-input"
+              placeholder="Enter polygon name..."
+            />
+          </div>
+          <div class="modern-form-group">
+            <label class="modern-label">
+              <i class="fas fa-file-alt"></i>
+              Deskripsi
+            </label>
+            <textarea 
+              v-model="editPolygonData.deskripsi" 
+              class="modern-form-textarea"
+              placeholder="Enter description..."
+              rows="3"
+            ></textarea>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="closeEditPolygonModal">Cancel</button>
-          <button class="btn-primary" @click="updatePolygon">Update</button>
+        <div class="modern-modal-footer">
+          <button class="modern-btn-primary" @click="updatePolygon"> 
+            Update Polygon
+          </button>
         </div>
+      </div>
+    </div>
+
+    <!-- Modern Toast Notifications -->
+    <div class="toast-container">
+      <div v-for="toast in toasts" :key="toast.id" 
+           :class="['toast', `toast-${toast.type}`, { 'toast-confirmation': toast.isConfirmation }]">
+        
+        <!-- Regular Toast -->
+        <template v-if="!toast.isConfirmation">
+          <div class="toast-icon">
+            <i :class="getToastIcon(toast.type)"></i>
+          </div>
+          <div class="toast-content">
+            <h4 class="toast-title">{{ toast.title }}</h4>
+            <p class="toast-message">{{ toast.message }}</p>
+          </div>
+          <button class="toast-close" @click.stop="removeToast(toast.id)">
+            <i class="fas fa-times"></i>
+          </button>
+        </template>
+
+        <!-- Confirmation Toast -->
+        <template v-if="toast.isConfirmation">
+          <div class="confirmation-content">
+            <div class="confirmation-header">
+              <div class="confirmation-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+              </div>
+              <div class="confirmation-text">
+                <h4 class="confirmation-title">{{ toast.title }}</h4>
+                <p class="confirmation-message">{{ toast.message }}</p>
+                <p v-if="toast.subtitle" class="confirmation-subtitle">{{ toast.subtitle }}</p>
+              </div>
+            </div>
+            <div class="confirmation-actions">
+              <button class="confirmation-btn cancel" @click="handleConfirmation(toast.id, false)">
+                <i class="fas fa-times"></i>
+                {{ toast.cancelText }}
+              </button>
+              <button class="confirmation-btn confirm" @click="handleConfirmation(toast.id, true)">
+                <i class="fas fa-check"></i>
+                {{ toast.confirmText }}
+              </button>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
   </div>
@@ -317,6 +417,10 @@ export default {
       loading: false,
       loadingMessage: '',
       currentUser: null,
+
+      // Toast notifications
+      toasts: [],
+      toastId: 0,
 
       // Sidebar states
       showPlacemarks: true,
@@ -411,6 +515,14 @@ export default {
       return this.projectMode === 'view';
     },
     
+    // Computed property untuk mengecek apakah sedang create project baru
+    isCreateMode() {
+      // Cek apakah tidak ada project ID di route atau currentProject kosong/baru
+      const projectId = this.$route.params.id;
+      return !projectId || !this.currentProject || 
+             (this.currentProject && !this.currentProject.id_project);
+    },
+    
     // Computed property untuk button states
     buttonClass() {
       return this.isViewMode ? 'disabled' : '';
@@ -438,11 +550,7 @@ export default {
         this.projectMode = 'view';
         this.isReadOnly = true;
         console.log('🔒 Project set to READ-ONLY mode');
-      } else {
-        this.projectMode = 'edit';
-        this.isReadOnly = false;
-        console.log('✏️ Project set to EDIT mode');
-      }
+      } 
     },
 
     async apiCall(endpoint, method = 'GET', data = null) {
@@ -615,14 +723,25 @@ export default {
       const result = await this.apiCall('/backend/api/project/save_project.php', 'POST', dataToSave);
       
       if (result && result.status === 'success') {
-        alert(`Project berhasil disimpan!\nMarkers: ${this.placemarks.length}\nPolygons: ${this.polygons.length}\nLegacy Polygon: ${this.polygon ? 'Yes' : 'No'}`);
+        // Show success toast
+        this.showToast('success', 'Project Saved', 
+          `Project berhasil disimpan!\nMarkers: ${this.placemarks.length}\nPolygons: ${this.polygons.length}`, 
+          4000);
         
         // Optional: Update project info
         if (result.data) {
           console.log('Save result:', result.data);
         }
+
+        // Redirect to dashboard after 2 seconds
+        setTimeout(() => {
+          this.$router.push('/dashboard');
+        }, 2000);
+        
       } else {
-        alert("Gagal menyimpan project: " + (result.message || 'Unknown error'));
+        this.showToast('error', 'Save Failed', 
+          result.message || 'Gagal menyimpan project', 
+          5000);
       }
     },
 
@@ -657,6 +776,69 @@ export default {
       }
     },
 
+    // Toast notification methods
+    showToast(type, title, message, duration = 5000) {
+      const toast = {
+        id: ++this.toastId,
+        type,
+        title,
+        message,
+        duration
+      };
+      
+      this.toasts.push(toast);
+      
+      // Auto remove after duration
+      setTimeout(() => {
+        this.removeToast(toast.id);
+      }, duration);
+    },
+    
+    removeToast(id) {
+      const index = this.toasts.findIndex(toast => toast.id === id);
+      if (index > -1) {
+        this.toasts.splice(index, 1);
+      }
+    },
+    
+    getToastIcon(type) {
+      const icons = {
+        success: 'fas fa-check-circle',
+        error: 'fas fa-exclamation-circle',
+        warning: 'fas fa-exclamation-triangle',
+        info: 'fas fa-info-circle'
+      };
+      return icons[type] || icons.info;
+    },
+
+    // Modern confirmation dialog
+    showConfirmation(title, message, subtitle = '', confirmText = 'Confirm', cancelText = 'Cancel') {
+      return new Promise((resolve) => {
+        // Create a temporary confirmation toast
+        const confirmToast = {
+          id: ++this.toastId,
+          type: 'warning',
+          title: title,
+          message: message,
+          subtitle: subtitle,
+          confirmText: confirmText,
+          cancelText: cancelText,
+          isConfirmation: true,
+          resolve: resolve
+        };
+        
+        this.toasts.push(confirmToast);
+      });
+    },
+
+    handleConfirmation(toastId, confirmed) {
+      const toast = this.toasts.find(t => t.id === toastId);
+      if (toast && toast.isConfirmation) {
+        toast.resolve(confirmed);
+        this.removeToast(toastId);
+      }
+    },
+
     // Save individual placemark
     async savePlacemark(lat, lng, name = '', description = '', alamat = '', kelurahan = '', kecamatan = '', kota = '', provinsi = '') {
       const projectId = this.currentProjectId || this.$route.params.id;
@@ -680,6 +862,7 @@ export default {
 
       if (result.success) {
         console.log('Placemark saved:', result.data);
+        this.showToast('success', 'Placemark Added', 'Marker berhasil ditambahkan ke peta!', 3000);
 
         // Pastikan array placemarks ada
         if (!this.currentProject.placemarks) {
@@ -703,6 +886,7 @@ export default {
         });
       } else {
         console.error('Save placemark failed:', result.message);
+        this.showToast('error', 'Save Failed', 'Gagal menyimpan marker: ' + result.message, 4000);
       }
     },
 
@@ -1305,7 +1489,7 @@ export default {
         return;
       }
       if (this.polygonPath.length < 3) {
-        alert('Minimal 3 titik diperlukan untuk membuat polygon');
+        this.showToast('warning', 'Insufficient Points', 'Minimal 3 titik diperlukan untuk membuat polygon', 4000);
         return;
       }
 
@@ -1318,7 +1502,7 @@ export default {
       // Save polygon to backend first
       const projectId = this.$route.params.id || (this.currentProject ? this.currentProject.id_project : null);
       if (!projectId) {
-        alert('Project ID tidak ditemukan');
+        this.showToast('error', 'Project Not Found', 'Project ID tidak ditemukan', 4000);
         return;
       }
 
@@ -1354,14 +1538,18 @@ export default {
           this.drawingPolygon = false;
           this.updateMapCursor();
 
-          alert(`Polygon berhasil dibuat dan disimpan! Total polygons: ${this.polygons.length}`);
+          this.showToast('success', 'Polygon Created', 
+            `Polygon berhasil dibuat dan disimpan!\nTotal polygons: ${this.polygons.length}`, 
+            4000);
           console.log(`Polygon created successfully. Total polygons: ${this.polygons.length}`);
         } else {
-          alert('Gagal menyimpan polygon: ' + (result.message || 'Unknown error'));
+          this.showToast('error', 'Save Failed', 
+            'Gagal menyimpan polygon: ' + (result.message || 'Unknown error'), 
+            5000);
         }
       } catch (error) {
         console.error('Error saving polygon:', error);
-        alert('Error saving polygon');
+        this.showToast('error', 'Save Error', 'Terjadi kesalahan saat menyimpan polygon', 5000);
       }
     },
 
@@ -1711,14 +1899,14 @@ export default {
             this.placemarks[this.editPlacemarkIndex].provinsi = this.editPlacemarkData.provinsi;
           }
           
-          alert('Placemark berhasil diupdate!');
+          this.showToast('success', 'Placemark Updated', 'Placemark berhasil diupdate!', 3000);
           this.closeEditPlacemarkModal();
         } else {
-          alert('Gagal update placemark: ' + (result.message || 'Unknown error'));
+          this.showToast('error', 'Update Failed', result.message || 'Gagal update placemark', 4000);
         }
       } catch (error) {
         console.error('Update placemark error:', error);
-        alert('Terjadi kesalahan saat update placemark');
+        this.showToast('error', 'Update Error', 'Terjadi kesalahan saat update placemark', 4000);
       }
     },
 
@@ -1731,10 +1919,19 @@ export default {
       const placemark = this.placemarks[index];
       if (!placemark) return;
 
-      const confirmDelete = confirm(
-        `Delete marker "${placemark.nama_placemark || placemark.name_placemark || `Tiang ${index + 1}`}"?`
+      // Show confirmation toast instead of confirm dialog
+      const placemarkName = placemark.nama_placemark || placemark.name_placemark || `Tiang ${index + 1}`;
+      
+      // Create a more modern confirmation system
+      const confirmed = await this.showConfirmation(
+        'Delete Placemark',
+        `Are you sure you want to delete "${placemarkName}"?`,
+        'This action cannot be undone.',
+        'Delete',
+        'Cancel'
       );
-      if (!confirmDelete) return;
+      
+      if (!confirmed) return;
 
       const placemarkId = placemark.id_placemark || placemark.id;
       
@@ -1756,16 +1953,16 @@ export default {
             // Hapus dari array placemarks
             this.placemarks.splice(index, 1);
             
-            alert('Placemark berhasil dihapus!');
+            this.showToast('success', 'Success!', `Placemark "${placemarkName}" has been deleted successfully`, 3000);
           } else {
-            alert('Gagal hapus dari database: ' + (result.message || 'Unknown error'));
+            this.showToast('error', 'Delete Failed', result.message || 'Failed to delete from database', 4000);
           }
         } catch (err) {
           console.error('Delete API error:', err);
-          alert('Error saat menghapus dari backend.');
+          this.showToast('error', 'Network Error', 'Failed to connect to server while deleting placemark', 4000);
         }
       } else {
-        alert('Placemark ini tidak punya ID di database!');
+        this.showToast('warning', 'Invalid Data', 'This placemark has no database ID and cannot be deleted', 3000);
       }
     },
 
@@ -1822,14 +2019,14 @@ export default {
             this.polygons[this.editPolygonIndex].deskripsi = this.editPolygonData.deskripsi;
           }
           
-          alert('Polygon berhasil diupdate!');
+          this.showToast('success', 'Polygon Updated', 'Polygon berhasil diupdate!', 3000);
           this.closeEditPolygonModal();
         } else {
-          alert('Gagal update polygon: ' + (result.message || 'Unknown error'));
+          this.showToast('error', 'Update Failed', result.message || 'Gagal update polygon', 4000);
         }
       } catch (error) {
         console.error('Update polygon error:', error);
-        alert('Terjadi kesalahan saat update polygon');
+        this.showToast('error', 'Update Error', 'Terjadi kesalahan saat update polygon', 4000);
       }
     },
 
@@ -1842,7 +2039,18 @@ export default {
       if (index === null || !this.polygons[index]) return;
 
       const polygonData = this.polygons[index];
-      if (!confirm(`Delete polygon "${polygonData.nama_polygon || `Polygon ${index + 1}`}"?`)) return;
+      const polygonName = polygonData.nama_polygon || `Polygon ${index + 1}`;
+      
+      // Show confirmation toast instead of confirm dialog
+      const confirmed = await this.showConfirmation(
+        'Delete Polygon',
+        `Are you sure you want to delete "${polygonName}"?`,
+        'This action cannot be undone.',
+        'Delete',
+        'Cancel'
+      );
+      
+      if (!confirmed) return;
       
       const polygonId = polygonData.id_polygon || polygonData.id;
       
@@ -1861,16 +2069,16 @@ export default {
             // Remove from local array
             this.polygons.splice(index, 1);
             
-            alert('Polygon berhasil dihapus!');
+            this.showToast('success', 'Success!', `Polygon "${polygonName}" has been deleted successfully`, 3000);
           } else {
-            alert('Failed to delete polygon: ' + (result.message || 'Unknown error'));
+            this.showToast('error', 'Delete Failed', result.message || 'Failed to delete polygon from database', 4000);
           }
         } catch (error) {
           console.error('Error deleting polygon:', error);
-          alert('Error deleting polygon');
+          this.showToast('error', 'Network Error', 'Failed to connect to server while deleting polygon', 4000);
         }
       } else {
-        alert('Polygon ini tidak punya ID di database!');
+        this.showToast('warning', 'Invalid Data', 'This polygon has no database ID and cannot be deleted', 3000);
       }
     },
 
@@ -2864,6 +3072,12 @@ input:focus {
   border-color: #4caf50;
 }
 
+.create-mode {
+  background: linear-gradient(135deg, #fff3e0, #e8f5e8);
+  color: #f57c00;
+  border-color: #ff9800;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -2872,6 +3086,554 @@ input:focus {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* =============== TOAST NOTIFICATIONS =============== */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: toastSlideIn 0.4s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.toast::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+.toast:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.toast-success {
+  background: linear-gradient(135deg, rgba(40, 167, 69, 0.95), rgba(32, 201, 151, 0.95));
+  color: white;
+  border-color: rgba(40, 167, 69, 0.3);
+}
+
+.toast-error {
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.95), rgba(231, 76, 60, 0.95));
+  color: white;
+  border-color: rgba(220, 53, 69, 0.3);
+}
+
+.toast-warning {
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.95), rgba(255, 159, 64, 0.95));
+  color: #212529;
+  border-color: rgba(255, 193, 7, 0.3);
+}
+
+.toast-info {
+  background: linear-gradient(135deg, rgba(23, 103, 126, 0.95), rgba(32, 201, 151, 0.95));
+  color: white;
+  border-color: rgba(23, 103, 126, 0.3);
+}
+
+.toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  line-height: 1.2;
+}
+
+.toast-message {
+  font-size: 13px;
+  margin: 0;
+  opacity: 0.9;
+  line-height: 1.3;
+  word-wrap: break-word;
+  white-space: pre-line;
+}
+
+.toast-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: none;
+  border: none;
+  color: currentColor;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.toast-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+/* =============== CONFIRMATION TOAST =============== */
+.toast-confirmation {
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.95), rgba(255, 159, 64, 0.95));
+  border-color: rgba(255, 193, 7, 0.3);
+  color: #212529;
+  cursor: default;
+  min-width: 350px;
+  padding: 20px;
+}
+
+.confirmation-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.confirmation-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.confirmation-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+  flex-shrink: 0;
+  color: #ff6b35;
+}
+
+.confirmation-text {
+  flex: 1;
+}
+
+.confirmation-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  line-height: 1.2;
+  color: #212529;
+}
+
+.confirmation-message {
+  font-size: 14px;
+  margin: 0 0 4px 0;
+  opacity: 0.9;
+  line-height: 1.3;
+  color: #495057;
+}
+
+.confirmation-subtitle {
+  font-size: 12px;
+  margin: 0;
+  opacity: 0.7;
+  font-style: italic;
+  color: #6c757d;
+}
+
+.confirmation-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.confirmation-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.confirmation-btn.cancel {
+  background: rgba(108, 117, 125, 0.1);
+  color: #6c757d;
+  border: 1px solid rgba(108, 117, 125, 0.3);
+}
+
+.confirmation-btn.cancel:hover {
+  background: rgba(108, 117, 125, 0.2);
+  transform: translateY(-1px);
+}
+
+.confirmation-btn.confirm {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+  color: white;
+  border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.confirmation-btn.confirm:hover {
+  background: linear-gradient(135deg, #c82333, #bd2130);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+@keyframes toastSlideIn {
+  from {
+    transform: translateX(100%) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Responsive Toast */
+@media (max-width: 768px) {
+  .toast-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+  
+  .toast {
+    padding: 14px 16px;
+  }
+  
+  .toast-confirmation {
+    min-width: auto;
+    padding: 16px;
+  }
+  
+  .confirmation-actions {
+    flex-direction: column;
+  }
+  
+  .confirmation-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .toast-title {
+    font-size: 13px;
+  }
+  
+  .toast-message {
+    font-size: 12px;
+  }
+}
+
+/* =============== MODERN MODAL STYLES =============== */
+.modern-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: modalOverlayFadeIn 0.3s ease-out;
+}
+
+.modern-modal-content {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: modalContentSlideIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.modern-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 28px;
+  background: linear-gradient(135deg, #17677E 0%, #145a6b 100%);
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.modern-modal-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+  opacity: 0.3;
+}
+
+.modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  font-size: 20px;
+  color: white;
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.modal-title-section {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.modal-title-section h3 {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.modal-title-section p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.modern-btn-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(10px);
+}
+
+.modern-btn-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.1);
+}
+
+.modern-modal-body {
+  padding: 28px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.modern-form-group {
+  margin-bottom: 24px;
+}
+
+.modern-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.modern-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.modern-label i {
+  color: #4154f1;
+  font-size: 14px;
+}
+
+.modern-form-input,
+.modern-form-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: #ffffff;
+  color: #2c3e50;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.modern-form-input:focus,
+.modern-form-textarea:focus {
+  outline: none;
+  border-color: #4154f1;
+  box-shadow: 0 0 0 3px rgba(65, 84, 241, 0.1);
+  background: #ffffff;
+}
+
+.modern-form-textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+}
+
+.modern-modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 20px 28px 28px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+}
+
+.modern-btn-primary,
+.modern-btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  justify-content: center;
+  min-width: 120px;
+}
+
+.modern-btn-primary {
+  background: green;
+  color: white;
+  box-shadow: 0 4px 15px rgba(65, 84, 241, 0.3);
+  position: center;
+}
+
+.modern-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(65, 84, 241, 0.4);
+  background: green;
+}
+
+.modern-btn-secondary {
+  background: #ffffff;
+  color: #6c757d;
+  border: 2px solid #e9ecef;
+}
+
+.modern-btn-secondary:hover {
+  background: #f8f9fa;
+  border-color: #dee2e6;
+  transform: translateY(-1px);
+}
+
+@keyframes modalOverlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalContentSlideIn {
+  from {
+    transform: scale(0.8) translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Responsive Modal */
+@media (max-width: 768px) {
+  .modern-modal-content {
+    width: 95%;
+    margin: 20px;
+    max-height: calc(100vh - 40px);
+  }
+  
+  .modern-modal-header {
+    padding: 20px 24px;
+  }
+  
+  .modal-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+  
+  .modal-title-section h3 {
+    font-size: 18px;
+  }
+  
+  .modern-modal-body {
+    padding: 24px;
+  }
+  
+  .modern-modal-footer {
+    flex-direction: column;
+    padding: 20px 24px 24px;
+  }
+  
+  .modern-btn-primary,
+  .modern-btn-secondary {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

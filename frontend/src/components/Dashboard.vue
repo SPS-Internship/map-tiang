@@ -117,6 +117,24 @@
     </div>
   </div>
 
+  <!-- Modern Toast Notifications -->
+  <div class="toast-container">
+    <div v-for="toast in toasts" :key="toast.id" 
+         :class="['toast', `toast-${toast.type}`]"
+         @click="removeToast(toast.id)">
+      <div class="toast-icon">
+        <i :class="getToastIcon(toast.type)"></i>
+      </div>
+      <div class="toast-content">
+        <h4 class="toast-title">{{ toast.title }}</h4>
+        <p class="toast-message">{{ toast.message }}</p>
+      </div>
+      <button class="toast-close" @click.stop="removeToast(toast.id)">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+
   <!-- Custom Modal -->
   <div id="netmap-prompt-modal" class="netmap-modal-overlay" v-show="showModal">
     <div class="netmap-modal">
@@ -189,7 +207,11 @@ export default {
       successMessage: '',
       modalLoading: false,
       modalResolve: null,
-      modalReject: null
+      modalReject: null,
+      
+      // Toast notifications
+      toasts: [],
+      toastId: 0
     }
   },
 
@@ -438,6 +460,9 @@ export default {
 
     editProject(projectId) {
       console.log(`Edit project: ${projectId}`);
+      // Show toast notification
+      this.showToast('info', 'Project Editor', 'Opening project in edit mode...', 3000);
+      
       // Set mode edit dan navigasi ke project
       this.$router.push({
         path: `/project/${projectId}`,
@@ -447,6 +472,9 @@ export default {
 
     viewProject(projectId) {
       console.log(`View project: ${projectId}`);
+      // Show toast notification
+      this.showToast('info', 'Project Viewer', 'Opening project in read-only mode...', 3000);
+      
       // Set mode read-only dan navigasi ke project
       this.$router.push({
         path: `/project/${projectId}`,
@@ -459,18 +487,21 @@ export default {
         return;
       }
 
+      // Show loading toast
+      this.showToast('info', 'Deleting Project', 'Please wait while we delete the project...', 10000);
+
       try {
         const result = await this.apiCall(`/api/project/delete.php?id=${projectId}`, 'DELETE');
 
         if (result.status === 'success') {
           await this.loadProjects();
-          alert('Project berhasil dihapus!');
+          this.showToast('success', 'Project Deleted', 'Project has been successfully deleted!', 4000);
         } else {
-          alert('Gagal menghapus project: ' + result.message);
+          this.showToast('error', 'Delete Failed', result.message || 'Failed to delete project', 5000);
         }
       } catch (error) {
         console.error('Error deleting project:', error);
-        alert('Terjadi kesalahan saat menghapus project');
+        this.showToast('error', 'Delete Error', 'An error occurred while deleting the project', 5000);
       }
     },
     
@@ -489,6 +520,41 @@ export default {
         localStorage.removeItem('userId');
         this.$router.push('/');
       }
+    },
+
+    // Toast notification methods
+    showToast(type, title, message, duration = 5000) {
+      const toast = {
+        id: ++this.toastId,
+        type,
+        title,
+        message,
+        duration
+      };
+      
+      this.toasts.push(toast);
+      
+      // Auto remove after duration
+      setTimeout(() => {
+        this.removeToast(toast.id);
+      }, duration);
+    },
+    
+    removeToast(id) {
+      const index = this.toasts.findIndex(toast => toast.id === id);
+      if (index > -1) {
+        this.toasts.splice(index, 1);
+      }
+    },
+    
+    getToastIcon(type) {
+      const icons = {
+        success: 'fas fa-check-circle',
+        error: 'fas fa-exclamation-circle',
+        warning: 'fas fa-exclamation-triangle',
+        info: 'fas fa-info-circle'
+      };
+      return icons[type] || icons.info;
     },
 
     filterProjects() {
@@ -1763,6 +1829,159 @@ select:focus {
   align-items: center;
   gap: 10px;
   border: 2px solid #b8dabc;
+}
+
+/* =============== TOAST NOTIFICATIONS =============== */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: toastSlideIn 0.4s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.toast::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+.toast:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.toast-success {
+  background: linear-gradient(135deg, rgba(40, 167, 69, 0.95), rgba(32, 201, 151, 0.95));
+  color: white;
+  border-color: rgba(40, 167, 69, 0.3);
+}
+
+.toast-error {
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.95), rgba(231, 76, 60, 0.95));
+  color: white;
+  border-color: rgba(220, 53, 69, 0.3);
+}
+
+.toast-warning {
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.95), rgba(255, 159, 64, 0.95));
+  color: #212529;
+  border-color: rgba(255, 193, 7, 0.3);
+}
+
+.toast-info {
+  background: linear-gradient(135deg, rgba(23, 103, 126, 0.95), rgba(32, 201, 151, 0.95));
+  color: white;
+  border-color: rgba(23, 103, 126, 0.3);
+}
+
+.toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  line-height: 1.2;
+}
+
+.toast-message {
+  font-size: 13px;
+  margin: 0;
+  opacity: 0.9;
+  line-height: 1.3;
+  word-wrap: break-word;
+}
+
+.toast-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: none;
+  border: none;
+  color: currentColor;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.toast-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+@keyframes toastSlideIn {
+  from {
+    transform: translateX(100%) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Responsive Toast */
+@media (max-width: 768px) {
+  .toast-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+  
+  .toast {
+    padding: 14px 16px;
+  }
+  
+  .toast-title {
+    font-size: 13px;
+  }
+  
+  .toast-message {
+    font-size: 12px;
+  }
 }
 
 .sidebar,
