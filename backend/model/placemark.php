@@ -89,12 +89,24 @@ class Placemark {
     // Update placemark
     public function update() {
         $query = "UPDATE placemark
-          SET nama_placemark=:nama_placemark
+          SET nama_placemark=:nama_placemark,
+              deskripsi=:deskripsi,
+              alamat=:alamat,
+              kelurahan=:kelurahan,
+              kecamatan=:kecamatan,
+              kota=:kota,
+              provinsi=:provinsi
           WHERE id_placemark=:id_placemark";
 
         $stmt = $this->conn->prepare($query);
 
         $stmt->bindParam(":nama_placemark", $this->nama_placemark);
+        $stmt->bindParam(":deskripsi", $this->deskripsi);
+        $stmt->bindParam(":alamat", $this->alamat);
+        $stmt->bindParam(":kelurahan", $this->kelurahan);
+        $stmt->bindParam(":kecamatan", $this->kecamatan);
+        $stmt->bindParam(":kota", $this->kota);
+        $stmt->bindParam(":provinsi", $this->provinsi);
         $stmt->bindParam(":id_placemark", $this->id_placemark);
 
         return $stmt->execute();

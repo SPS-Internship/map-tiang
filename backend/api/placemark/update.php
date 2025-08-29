@@ -34,6 +34,12 @@ if (!$data || !isset($data->id_placemark)) {
 // Set property
 $placemark->id_placemark = $data->id_placemark;
 $placemark->nama_placemark = $data->nama_placemark ?? '';
+$placemark->deskripsi = $data->deskripsi ?? '';
+$placemark->alamat = $data->alamat ?? '';
+$placemark->kelurahan = $data->kelurahan ?? '';
+$placemark->kecamatan = $data->kecamatan ?? '';
+$placemark->kota = $data->kota ?? '';
+$placemark->provinsi = $data->provinsi ?? '';
 
 // Jalankan update
 try {

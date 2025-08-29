@@ -165,6 +165,58 @@
     <div class="map-container">
       <div id="map" style="height: 450px;"></div>
     </div>
+
+    <!-- Edit Placemark Modal -->
+    <div v-if="showEditPlacemarkModal" class="modal-overlay" @click="closeEditPlacemarkModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Edit Placemark</h3>
+          <button class="btn-close" @click="closeEditPlacemarkModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Nama Placemark:</label>
+            <input type="text" v-model="editPlacemarkData.nama_placemark" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label>Deskripsi:</label>
+            <textarea v-model="editPlacemarkData.deskripsi" class="form-textarea"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Alamat:</label>
+            <input type="text" v-model="editPlacemarkData.alamat" class="form-input" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="closeEditPlacemarkModal">Cancel</button>
+          <button class="btn-primary" @click="updatePlacemark">Update</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Polygon Modal -->
+    <div v-if="showEditPolygonModal" class="modal-overlay" @click="closeEditPolygonModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Edit Polygon</h3>
+          <button class="btn-close" @click="closeEditPolygonModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Nama Polygon:</label>
+            <input type="text" v-model="editPolygonData.nama_polygon" class="form-input" />
+          </div>
+          <div class="form-group">
+            <label>Deskripsi:</label>
+            <textarea v-model="editPolygonData.deskripsi" class="form-textarea"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="closeEditPolygonModal">Cancel</button>
+          <button class="btn-primary" @click="updatePolygon">Update</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 </template>
@@ -210,7 +262,28 @@ export default {
       searchQuery: '',
       showEditModal: false,
       editIndex: null,
-      editName: ""
+      editName: "",
+
+      // Edit modal states
+      showEditPlacemarkModal: false,
+      showEditPolygonModal: false,
+      editPlacemarkData: {
+        id_placemark: null,
+        nama_placemark: '',
+        deskripsi: '',
+        alamat: '',
+        kelurahan: '',
+        kecamatan: '',
+        kota: '',
+        provinsi: ''
+      },
+      editPolygonData: {
+        id_polygon: null,
+        nama_polygon: '',
+        deskripsi: ''
+      },
+      editPlacemarkIndex: null,
+      editPolygonIndex: null
     };
   },
   
@@ -599,6 +672,7 @@ export default {
 
           return {
             id: polygonData.id_polygon,
+            id_polygon: polygonData.id_polygon, // Keep both for compatibility
             nama_polygon: polygonData.nama_polygon,
             deskripsi: polygonData.deskripsi,
             coordinates: coordinates,
@@ -1334,13 +1408,21 @@ export default {
             this.placemarks = [];
             
             this.currentProject.placemarks.forEach(pm => {
-              // Add to placemarks array for sidebar display
+              // Add to placemarks array for sidebar display with consistent structure
               this.placemarks.push({
                 lat: parseFloat(pm.latitude),
                 lng: parseFloat(pm.longitude),
-                name_placemark: pm.nama_placemark || 'Marker',
+                nama_placemark: pm.nama_placemark || 'Marker',
+                name_placemark: pm.nama_placemark || 'Marker', // Keep both for compatibility
                 address: pm.alamat || '',
-                id: pm.id_placemark
+                alamat: pm.alamat || '',
+                deskripsi: pm.deskripsi || '',
+                kelurahan: pm.kelurahan || '',
+                kecamatan: pm.kecamatan || '',
+                kota: pm.kota || '',
+                provinsi: pm.provinsi || '',
+                id: pm.id_placemark,
+                id_placemark: pm.id_placemark
               });
               
               // Add marker to map
@@ -1427,122 +1509,201 @@ export default {
     },
 
     // Edit placemark
-    async editPlacemark(index) {
+    editPlacemark(index) {
       if (!this.placemarks[index]) return;
 
       const placemark = this.placemarks[index];
-      const newName = prompt(
-        "Edit marker name:",
-        placemark.nama_placemark || `Marker ${index + 1}`
-      );
+      
+      // Set data untuk modal edit
+      this.editPlacemarkData = {
+        id_placemark: placemark.id_placemark || placemark.id,
+        nama_placemark: placemark.nama_placemark || placemark.name_placemark || `Tiang ${index + 1}`,
+        deskripsi: placemark.deskripsi || '',
+        alamat: placemark.alamat || placemark.address || '',
+        kelurahan: placemark.kelurahan || '',
+        kecamatan: placemark.kecamatan || '',
+        kota: placemark.kota || '',
+        provinsi: placemark.provinsi || ''
+      };
+      
+      this.editPlacemarkIndex = index;
+      this.showEditPlacemarkModal = true;
+    },
 
-      if (newName && newName.trim() !== "") {
-        try {
-          const response = await fetch("http://localhost/project_map/backend/api/placemark/update.php", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id_placemark: placemark.id,   // <- cek key ID yg bener (id atau id_placemark)
-              nama_placemark: newName.trim(),
-            }),
-          });
+    // Close edit placemark modal
+    closeEditPlacemarkModal() {
+      this.showEditPlacemarkModal = false;
+      this.editPlacemarkIndex = null;
+      this.editPlacemarkData = {
+        id_placemark: null,
+        nama_placemark: '',
+        deskripsi: '',
+        alamat: '',
+        kelurahan: '',
+        kecamatan: '',
+        kota: '',
+        provinsi: ''
+      };
+    },
 
-          const result = await response.json();
-          if (result.success) {
-            this.placemarks[index].nama_placemark = newName.trim(); // update langsung array yg dipakai sidebar
-            alert("Nama placemark berhasil diupdate!");
-          } else {
-            alert("Gagal update: " + result.message);
+    // Update placemark
+    async updatePlacemark() {
+      if (!this.editPlacemarkData.id_placemark) {
+        alert('ID placemark tidak ditemukan');
+        return;
+      }
+
+      try {
+        const result = await this.apiCall('/backend/api/placemark/update.php', 'PUT', {
+          id_placemark: this.editPlacemarkData.id_placemark,
+          nama_placemark: this.editPlacemarkData.nama_placemark.trim(),
+          deskripsi: this.editPlacemarkData.deskripsi,
+          alamat: this.editPlacemarkData.alamat,
+          kelurahan: this.editPlacemarkData.kelurahan,
+          kecamatan: this.editPlacemarkData.kecamatan,
+          kota: this.editPlacemarkData.kota,
+          provinsi: this.editPlacemarkData.provinsi
+        });
+
+        if (result.success) {
+          // Update data di array lokal
+          if (this.editPlacemarkIndex !== null) {
+            this.placemarks[this.editPlacemarkIndex].nama_placemark = this.editPlacemarkData.nama_placemark;
+            this.placemarks[this.editPlacemarkIndex].deskripsi = this.editPlacemarkData.deskripsi;
+            this.placemarks[this.editPlacemarkIndex].alamat = this.editPlacemarkData.alamat;
+            this.placemarks[this.editPlacemarkIndex].kelurahan = this.editPlacemarkData.kelurahan;
+            this.placemarks[this.editPlacemarkIndex].kecamatan = this.editPlacemarkData.kecamatan;
+            this.placemarks[this.editPlacemarkIndex].kota = this.editPlacemarkData.kota;
+            this.placemarks[this.editPlacemarkIndex].provinsi = this.editPlacemarkData.provinsi;
           }
-        } catch (err) {
-          console.error("Update error:", err);
-          alert("Terjadi kesalahan saat update placemark.");
+          
+          alert('Placemark berhasil diupdate!');
+          this.closeEditPlacemarkModal();
+        } else {
+          alert('Gagal update placemark: ' + (result.message || 'Unknown error'));
         }
+      } catch (error) {
+        console.error('Update placemark error:', error);
+        alert('Terjadi kesalahan saat update placemark');
       }
     },
 
     // Delete placemark
-async deletePlacemark(index) {
- const placemark = this.placemarks[index];
-  if (!placemark) return;
+    async deletePlacemark(index) {
+      const placemark = this.placemarks[index];
+      if (!placemark) return;
 
-  const confirmDelete = confirm(
-    `Delete marker "${placemark.nama_placemark || `Tiang ${index + 1}`}"?`
-  );
-  if (!confirmDelete) return;
-
-  if (placemark.id_placemark) {
-    try {
-      const result = await this.apiCall(
-        `/backend/api/placemark/delete.php?id_placemark=${placemark.id_placemark}`,
-        "DELETE"
+      const confirmDelete = confirm(
+        `Delete marker "${placemark.nama_placemark || placemark.name_placemark || `Tiang ${index + 1}`}"?`
       );
+      if (!confirmDelete) return;
 
-      if (result.success) {
-        console.log("Placemark deleted from DB:", placemark.id_placemark);
+      const placemarkId = placemark.id_placemark || placemark.id;
+      
+      if (placemarkId) {
+        try {
+          const result = await this.apiCall('/backend/api/placemark/delete.php', 'DELETE', {
+            id_placemark: placemarkId
+          });
 
-        // ✅ hapus marker dari map & array
-        if (this.markers[index]) {
-          this.markers[index].setMap(null);
-          this.markers.splice(index, 1);
+          if (result.success) {
+            console.log('Placemark deleted from DB:', placemarkId);
+
+            // Hapus marker dari map
+            if (this.markers[index]) {
+              this.markers[index].setMap(null);
+              this.markers.splice(index, 1);
+            }
+            
+            // Hapus dari array placemarks
+            this.placemarks.splice(index, 1);
+            
+            alert('Placemark berhasil dihapus!');
+          } else {
+            alert('Gagal hapus dari database: ' + (result.message || 'Unknown error'));
+          }
+        } catch (err) {
+          console.error('Delete API error:', err);
+          alert('Error saat menghapus dari backend.');
         }
-        this.placemarks.splice(index, 1);
       } else {
-        alert("Gagal hapus dari database: " + (result.message || "Unknown error"));
+        alert('Placemark ini tidak punya ID di database!');
       }
-    } catch (err) {
-      console.error("Delete API error:", err);
-      alert("Error saat menghapus dari backend.");
-    }
-  } else {
-    alert("Placemark ini tidak punya ID di database!");
-  }
-},
+    },
 
     // Edit polygon
-    editPolygon() {
-      if (this.polygon) {
-        this.polygon.setOptions({ editable: true });
-        alert('Polygon is now editable. Click and drag points to modify.');
-      }
+    editPolygon(index) {
+      if (index === null || !this.polygons[index]) return;
+
+      const polygonData = this.polygons[index];
+      
+      // Set data untuk modal edit
+      this.editPolygonData = {
+        id_polygon: polygonData.id_polygon || polygonData.id,
+        nama_polygon: polygonData.nama_polygon || `Polygon ${index + 1}`,
+        deskripsi: polygonData.deskripsi || ''
+      };
+      
+      this.editPolygonIndex = index;
+      this.showEditPolygonModal = true;
     },
 
-    // Edit polygon (supports both old single polygon and new multiple polygons)
-    editPolygon(index = null) {
-      if (index !== null && this.polygons[index]) {
-        // Edit specific polygon from multiple polygons
-        const polygonData = this.polygons[index];
-        const newName = prompt('Edit polygon name:', polygonData.nama_polygon || `Polygon ${index + 1}`);
-        const newDescription = prompt('Edit polygon description:', polygonData.deskripsi || '');
-        
-        if (newName !== null) {
-          // Update local data
-          this.polygons[index].nama_polygon = newName.trim() || `Polygon ${index + 1}`;
-          this.polygons[index].deskripsi = newDescription || '';
+    // Close edit polygon modal
+    closeEditPolygonModal() {
+      this.showEditPolygonModal = false;
+      this.editPolygonIndex = null;
+      this.editPolygonData = {
+        id_polygon: null,
+        nama_polygon: '',
+        deskripsi: ''
+      };
+    },
+
+    // Update polygon
+    async updatePolygon() {
+      if (!this.editPolygonData.id_polygon) {
+        alert('ID polygon tidak ditemukan');
+        return;
+      }
+
+      try {
+        const result = await this.apiCall('/backend/api/polygon/update.php', 'PUT', {
+          id_polygon: this.editPolygonData.id_polygon,
+          nama_polygon: this.editPolygonData.nama_polygon.trim(),
+          deskripsi: this.editPolygonData.deskripsi
+        });
+
+        if (result.success) {
+          // Update data di array lokal
+          if (this.editPolygonIndex !== null) {
+            this.polygons[this.editPolygonIndex].nama_polygon = this.editPolygonData.nama_polygon;
+            this.polygons[this.editPolygonIndex].deskripsi = this.editPolygonData.deskripsi;
+          }
           
-          // TODO: Update in backend
-          this.updatePolygonInBackend(polygonData.id, {
-            nama_polygon: this.polygons[index].nama_polygon,
-            deskripsi: this.polygons[index].deskripsi
-          });
+          alert('Polygon berhasil diupdate!');
+          this.closeEditPolygonModal();
+        } else {
+          alert('Gagal update polygon: ' + (result.message || 'Unknown error'));
         }
-      } else {
-        // Legacy: Edit old single polygon
-        console.log('Edit mode for legacy polygon not implemented');
+      } catch (error) {
+        console.error('Update polygon error:', error);
+        alert('Terjadi kesalahan saat update polygon');
       }
     },
 
-    // Delete polygon (supports both old single polygon and new multiple polygons)
-    async deletePolygon(index = null) {
-      if (index !== null && this.polygons[index]) {
-        // Delete specific polygon from multiple polygons
-        const polygonData = this.polygons[index];
-        if (!confirm(`Delete polygon "${polygonData.nama_polygon || `Polygon ${index + 1}`}"?`)) return;
-        
+    // Delete polygon
+    async deletePolygon(index) {
+      if (index === null || !this.polygons[index]) return;
+
+      const polygonData = this.polygons[index];
+      if (!confirm(`Delete polygon "${polygonData.nama_polygon || `Polygon ${index + 1}`}"?`)) return;
+      
+      const polygonId = polygonData.id_polygon || polygonData.id;
+      
+      if (polygonId) {
         try {
-          // Remove from backend
           const result = await this.apiCall('/backend/api/polygon/delete.php', 'DELETE', { 
-            id_polygon: polygonData.id 
+            id: polygonId 
           });
           
           if (result.success) {
@@ -1554,7 +1715,7 @@ async deletePlacemark(index) {
             // Remove from local array
             this.polygons.splice(index, 1);
             
-            alert('Polygon deleted successfully!');
+            alert('Polygon berhasil dihapus!');
           } else {
             alert('Failed to delete polygon: ' + (result.message || 'Unknown error'));
           }
@@ -1563,16 +1724,7 @@ async deletePlacemark(index) {
           alert('Error deleting polygon');
         }
       } else {
-        // Legacy: Delete old single polygon
-        if (!confirm('Delete this polygon?')) return;
-        
-        this.clearPolygon();
-        
-        // Delete from backend
-        const projectId = this.$route.params.id || (this.currentProject ? this.currentProject.id_project : null);
-        if (projectId) {
-          await this.apiCall(`/backend/api/polygon/delete.php`, 'DELETE', { id_project: projectId });
-        }
+        alert('Polygon ini tidak punya ID di database!');
       }
     },
 
@@ -2336,5 +2488,132 @@ input:focus {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #333;
+  flex: 1;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #999;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-close:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-input, .form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.form-input:focus, .form-textarea:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid #eee;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-primary:hover {
+  background: #45a049;
 }
 </style>

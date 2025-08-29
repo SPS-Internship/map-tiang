@@ -22,41 +22,21 @@ if ($id <= 0) {
     exit;
 }
 
-// Load existing polygons
-$polygonsFile = __DIR__ . '/../../data/polygons.json';
-$polygons = [];
-if (file_exists($polygonsFile)) {
-    $polygons = json_decode(file_get_contents($polygonsFile), true) ?? [];
-}
-
-// Find and remove polygon
-$found = false;
-foreach ($polygons as $key => $polygon) {
-    if ($polygon['id'] === $id) {
-        unset($polygons[$key]);
-        $found = true;
-        break;
+try {
+    require_once __DIR__ . '/../../config/database.php';
+    
+    $db = (new Database())->getConnection();
+    
+    $query = "DELETE FROM polygon WHERE id_polygon = :id_polygon";
+    $stmt = $db->prepare($query);
+    $stmt->bindParam(':id_polygon', $id, PDO::PARAM_INT);
+    
+    if ($stmt->execute() && $stmt->rowCount() > 0) {
+        echo json_encode(['success' => true, 'message' => 'Polygon berhasil dihapus']);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Polygon tidak ditemukan atau sudah dihapus']);
     }
-}
-
-if (!$found) {
-    echo json_encode(['success' => false, 'message' => 'Polygon tidak ditemukan']);
-    exit;
-}
-
-// Reindex array
-$polygons = array_values($polygons);
-
-// Save updated polygons
-if (file_put_contents($polygonsFile, json_encode($polygons, JSON_PRETTY_PRINT))) {
-    echo json_encode([
-        'success' => true,
-        'message' => 'Polygon berhasil dihapus'
-    ]);
-} else {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Gagal menghapus polygon'
-    ]);
+} catch (Exception $e) {
+    echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
 }
 ?>
