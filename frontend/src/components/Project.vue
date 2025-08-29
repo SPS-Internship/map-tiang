@@ -120,6 +120,7 @@
       <div class="toolbar-left">
         <div class="search-tools">
           <input
+            ref="searchInput"
             type="text"
             v-model="searchQuery"
             placeholder="Search Location"
@@ -1318,7 +1319,7 @@ export default {
     },
 
     searchLocation() {
-      const query = this.$refs.searchInput.value.trim();
+      const query = this.searchQuery.trim();
       if (!query) {
         alert('Masukkan lokasi untuk pencarian');
         return;
@@ -1350,7 +1351,7 @@ export default {
             title: results[0].formatted_address
           });
 
-          this.$refs.searchInput.value = '';
+          this.searchQuery = '';
         } else {
           alert("Lokasi tidak ditemukan: " + status);
         }
