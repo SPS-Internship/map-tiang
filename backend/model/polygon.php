@@ -10,6 +10,7 @@ class Polygon {
     public $nama_polygon;
     public $deskripsi;
     public $coordinate;
+    public $panjang_meter;
     public $created_at;
     
     // Constructor with DB
@@ -30,8 +31,8 @@ class Polygon {
     // Create polygon (PostgreSQL style)
     public function create() {
         $query = "INSERT INTO " . $this->table_name . " 
-                (id_project, nama_polygon, deskripsi, coordinate, created_at) 
-                VALUES (:id_project, :nama_polygon, :deskripsi, :coordinate, NOW()) 
+                (id_project, nama_polygon, deskripsi, coordinate, panjang_meter, created_at) 
+                VALUES (:id_project, :nama_polygon, :deskripsi, :coordinate, :panjang_meter, NOW()) 
                 RETURNING id_polygon";
 
         $stmt = $this->conn->prepare($query);
@@ -40,11 +41,37 @@ class Polygon {
         $this->id_project   = htmlspecialchars(strip_tags($this->id_project));
         $this->nama_polygon = htmlspecialchars(strip_tags($this->nama_polygon));
         $this->deskripsi    = htmlspecialchars(strip_tags($this->deskripsi));
+        
+        // Convert coordinate to PostgreSQL array format
+        if (is_string($this->coordinate)) {
+            // If it's a JSON string, decode it first
+            $coordArray = json_decode($this->coordinate, true);
+        } else if (is_array($this->coordinate)) {
+            $coordArray = $this->coordinate;
+        } else {
+            $coordArray = [];
+        }
+        
+        // Convert to PostgreSQL array format: {{lat1,lng1},{lat2,lng2},...}
+        if (!empty($coordArray)) {
+            $pgArray = '{';
+            $coordPairs = [];
+            foreach ($coordArray as $coord) {
+                if (isset($coord['lat']) && isset($coord['lng'])) {
+                    $coordPairs[] = '{' . $coord['lat'] . ',' . $coord['lng'] . '}';
+                }
+            }
+            $pgArray .= implode(',', $coordPairs) . '}';
+            $this->coordinate = $pgArray;
+        } else {
+            $this->coordinate = '{}'; // Empty array
+        }
 
         $stmt->bindParam(':id_project', $this->id_project);
         $stmt->bindParam(':nama_polygon', $this->nama_polygon);
         $stmt->bindParam(':deskripsi', $this->deskripsi);
         $stmt->bindParam(':coordinate', $this->coordinate);
+        $stmt->bindParam(':panjang_meter', $this->panjang_meter);
 
         if ($stmt->execute()) {
             // PostgreSQL bisa RETURNING langsung
@@ -59,8 +86,8 @@ class Polygon {
     // Update polygon (PostgreSQL style)
     public function update() {
         $query = "UPDATE " . $this->table_name . "
-                  SET nama_polygon = $1, coordinate = $2, deskripsi = $3, updated_at = NOW()
-                  WHERE id_polygon = $4 AND id_project = $5";
+                  SET nama_polygon = $1, coordinate = $2, deskripsi = $3, panjang_meter = $4, updated_at = NOW()
+                  WHERE id_polygon = $5 AND id_project = $6";
         
         $stmt = $this->conn->prepare($query);
         
@@ -68,10 +95,36 @@ class Polygon {
         $this->nama_polygon = htmlspecialchars(strip_tags($this->nama_polygon));
         $this->deskripsi = htmlspecialchars(strip_tags($this->deskripsi));
         
+        // Convert coordinate to PostgreSQL array format
+        if (is_string($this->coordinate)) {
+            // If it's a JSON string, decode it first
+            $coordArray = json_decode($this->coordinate, true);
+        } else if (is_array($this->coordinate)) {
+            $coordArray = $this->coordinate;
+        } else {
+            $coordArray = [];
+        }
+        
+        // Convert to PostgreSQL array format: {{lat1,lng1},{lat2,lng2},...}
+        if (!empty($coordArray)) {
+            $pgArray = '{';
+            $coordPairs = [];
+            foreach ($coordArray as $coord) {
+                if (isset($coord['lat']) && isset($coord['lng'])) {
+                    $coordPairs[] = '{' . $coord['lat'] . ',' . $coord['lng'] . '}';
+                }
+            }
+            $pgArray .= implode(',', $coordPairs) . '}';
+            $this->coordinate = $pgArray;
+        } else {
+            $this->coordinate = '{}'; // Empty array
+        }
+        
         return $stmt->execute([
             $this->nama_polygon, 
             $this->coordinate, 
             $this->deskripsi, 
+            $this->panjang_meter,
             $this->id_polygon, 
             $this->id_project
         ]);

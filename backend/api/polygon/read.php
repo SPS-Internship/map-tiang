@@ -40,6 +40,34 @@ try {
     $stmt->execute();
 
     $polygons = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Convert PostgreSQL array format back to JSON for frontend
+    foreach ($polygons as &$polygon) {
+        if (isset($polygon['coordinate']) && $polygon['coordinate']) {
+            $pgArray = $polygon['coordinate'];
+            
+            // Convert PostgreSQL array format {{lat1,lng1},{lat2,lng2}} back to JSON array
+            if (strpos($pgArray, '{') === 0) {
+                // Remove outer braces and split by coordinate pairs
+                $pgArray = trim($pgArray, '{}');
+                $coordPairs = explode('},{', $pgArray);
+                $coordinates = [];
+                
+                foreach ($coordPairs as $pair) {
+                    $pair = trim($pair, '{}');
+                    $coords = explode(',', $pair);
+                    if (count($coords) >= 2) {
+                        $coordinates[] = [
+                            'lat' => floatval($coords[0]),
+                            'lng' => floatval($coords[1])
+                        ];
+                    }
+                }
+                
+                $polygon['coordinate'] = json_encode($coordinates);
+            }
+        }
+    }
 
     echo json_encode([
         "success" => true,

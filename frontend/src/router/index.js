@@ -7,10 +7,6 @@ import Project from '../components/Project.vue'
 
 const routes = [
   {
-    path: '/',
-    redirect: '/login'
-  },
-  {
     path: '/login',
     name: 'Login',
     component: Login

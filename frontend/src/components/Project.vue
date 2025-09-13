@@ -94,6 +94,7 @@
               <div class="item-details">
                 <h5>{{ polygonData.nama_polygon || `Polygon ${index + 1}` }}</h5>
                 <p class="coordinates">{{ polygonData.coordinates ? polygonData.coordinates.length : 0 }} points</p>
+                <p class="distance" v-if="polygonData.panjang_meter">Distance: {{ polygonData.panjang_meter.toFixed(2) }} meters</p>
                 <p class="address" v-if="polygonData.deskripsi">{{ polygonData.deskripsi }}</p>
               </div>
             </div>
@@ -159,14 +160,6 @@
             :disabled="isViewMode"
             :title="isViewMode ? 'Read-only mode' : 'Add Marker'">
             <i class="fas fa-map-marker-alt"></i>
-          </button>
-          <button 
-            class="btn-icon" 
-            @click="togglePolygonMode" 
-            :class="{ active: drawingPolygon, disabled: isViewMode }"
-            :disabled="isViewMode"
-            :title="isViewMode ? 'Read-only mode' : 'Add Polygon'">
-            <i class="fas fa-project-diagram"></i>
           </button>
           <button 
             class="btn-icon" 
@@ -407,6 +400,11 @@ export default {
       polyline: null,
       searchMarker: null,
       apiKey: "AIzaSyA99VXYKlRV5wCubuIyXWdTGhSwkfyqeSc",
+      
+      // Auto polygon properties
+      autoPolygon: null,
+      autoPolygonPath: [],
+      directionsService: null,
       
       // Backend integration
       baseUrl: "http://localhost:8000",
@@ -910,6 +908,13 @@ export default {
         this.placemarks.forEach(pm => {
           this.addMarkerToMap(pm.lat, pm.lng, false, pm.nama_placemark);
         });
+        
+        // Trigger auto polygon creation if we have 2+ placemarks
+        if (this.placemarks.length >= 2) {
+          setTimeout(() => {
+            this.createAutoPolygon();
+          }, 1000);
+        }
       } else {
         console.error('Failed to load placemarks:', result.message);
       }
@@ -967,6 +972,7 @@ export default {
             deskripsi: polygonData.deskripsi,
             coordinates: coordinates,
             area: null, // Remove area calculation for polylines
+            panjang_meter: polygonData.panjang_meter || 0, // Add distance field
             googlePolygon: null // Will be set when rendered on map
           };
         });
@@ -978,6 +984,243 @@ export default {
       } else {
         console.error('Failed to load project polygons:', result.message);
         this.polygons = [];
+      }
+    },
+
+    // =============== AUTO POLYGON METHODS ===============
+    
+    // Create auto polygon when 2+ placemarks exist
+    async createAutoPolygon() {
+      if (this.placemarks.length < 2) {
+        console.log('Not enough placemarks for auto polygon');
+        return;
+      }
+
+      // Ensure DirectionsService is initialized
+      if (!this.directionsService) {
+        console.log('DirectionsService not initialized, creating new instance');
+        this.directionsService = new google.maps.DirectionsService();
+      }
+
+      try {
+        console.log('Creating auto polygon with', this.placemarks.length, 'placemarks');
+        
+        // Clear existing auto polygon
+        if (this.autoPolygon) {
+          this.autoPolygon.setMap(null);
+          this.autoPolygon = null;
+        }
+
+        // Get coordinates from placemarks
+        const waypoints = this.placemarks.map(pm => ({
+          lat: pm.lat,
+          lng: pm.lng
+        }));
+
+        // Create route using Google Directions API
+        if (waypoints.length === 2) {
+          await this.createSimpleRoute(waypoints);
+        } else {
+          await this.createOptimizedRoute(waypoints);
+        }
+
+      } catch (error) {
+        console.error('Error creating auto polygon:', error);
+        this.showToast('error', 'Auto Polygon Error', 'Failed to create automatic polygon', 3000);
+      }
+    },
+
+    // Create simple route for 2 points
+    async createSimpleRoute(waypoints) {
+      return new Promise((resolve, reject) => {
+        if (!this.directionsService) {
+          console.error('DirectionsService not available');
+          reject('DirectionsService not available');
+          return;
+        }
+
+        const request = {
+          origin: waypoints[0],
+          destination: waypoints[1],
+          travelMode: google.maps.TravelMode.DRIVING,
+          unitSystem: google.maps.UnitSystem.METRIC
+        };
+
+        this.directionsService.route(request, (result, status) => {
+          if (status === 'OK') {
+            const route = result.routes[0];
+            const path = route.overview_path;
+            
+            // Calculate distance from the route
+            const distance = route.legs.reduce((total, leg) => total + leg.distance.value, 0);
+            
+            this.renderAutoPolygon(path, distance);
+            resolve(result);
+          } else {
+            console.error('Directions request failed:', status);
+            // Fallback: create straight line polygon with calculated distance
+            this.createFallbackPolygon(waypoints);
+            reject(status);
+          }
+        });
+      });
+    },
+
+    // Create optimized route for 3+ points
+    async createOptimizedRoute(waypoints) {
+      return new Promise((resolve, reject) => {
+        if (!this.directionsService) {
+          console.error('DirectionsService not available');
+          reject('DirectionsService not available');
+          return;
+        }
+
+        const origin = waypoints[0];
+        const destination = waypoints[waypoints.length - 1];
+        const waypointsArray = waypoints.slice(1, -1).map(point => ({
+          location: point,
+          stopover: true
+        }));
+
+        const request = {
+          origin: origin,
+          destination: destination,
+          waypoints: waypointsArray,
+          optimizeWaypoints: true,
+          travelMode: google.maps.TravelMode.DRIVING,
+          unitSystem: google.maps.UnitSystem.METRIC
+        };
+
+        this.directionsService.route(request, (result, status) => {
+          if (status === 'OK') {
+            const route = result.routes[0];
+            const path = route.overview_path;
+            
+            // Calculate total distance from all legs
+            const distance = route.legs.reduce((total, leg) => total + leg.distance.value, 0);
+            
+            this.renderAutoPolygon(path, distance);
+            resolve(result);
+          } else {
+            console.error('Directions request failed:', status);
+            // Fallback: create straight line polygon with calculated distance
+            this.createFallbackPolygon(waypoints);
+            reject(status);
+          }
+        });
+      });
+    },
+
+    // Fallback method when Directions API fails
+    createFallbackPolygon(waypoints) {
+      console.log('Using fallback polygon creation method');
+      
+      // Calculate distance using spherical geometry
+      const distance = this.calculatePolygonDistance(waypoints);
+      
+      // Use the waypoints directly as polygon path
+      this.renderAutoPolygon(waypoints, distance);
+    },
+
+    // Render auto polygon on map
+    renderAutoPolygon(path, distanceInMeters) {
+      // Clear existing auto polygon
+      if (this.autoPolygon) {
+        this.autoPolygon.setMap(null);
+      }
+
+      // Convert path to simple coordinate array
+      this.autoPolygonPath = path.map(point => {
+        // Handle both Google Maps LatLng objects and simple coordinate objects
+        if (typeof point.lat === 'function') {
+          // Google Maps LatLng object
+          return {
+            lat: point.lat(),
+            lng: point.lng()
+          };
+        } else {
+          // Simple coordinate object
+          return {
+            lat: point.lat,
+            lng: point.lng
+          };
+        }
+      });
+
+      // Create polyline (not filled polygon)
+      this.autoPolygon = new google.maps.Polyline({
+        path: this.autoPolygonPath,
+        strokeColor: '#FF0000',
+        strokeOpacity: 0.8,
+        strokeWeight: 4,
+        editable: false,
+        draggable: false
+      });
+
+      this.autoPolygon.setMap(this.map);
+      
+      console.log(`Auto polygon created with distance: ${distanceInMeters} meters`);
+      
+      // Save auto polygon to database
+      this.saveAutoPolygon(distanceInMeters);
+    },
+
+    // Calculate polygon distance using spherical geometry (fallback method)
+    calculatePolygonDistance(coordinates) {
+      if (!coordinates || coordinates.length < 2) {
+        return 0;
+      }
+
+      let totalDistance = 0;
+      for (let i = 0; i < coordinates.length - 1; i++) {
+        const from = new google.maps.LatLng(coordinates[i].lat, coordinates[i].lng);
+        const to = new google.maps.LatLng(coordinates[i + 1].lat, coordinates[i + 1].lng);
+        totalDistance += google.maps.geometry.spherical.computeDistanceBetween(from, to);
+      }
+
+      return Math.round(totalDistance); // Return in meters
+    },
+
+    // Save auto polygon to database
+    async saveAutoPolygon(distanceInMeters) {
+      const projectId = this.$route.params.id || (this.currentProject ? this.currentProject.id_project : null);
+      if (!projectId) {
+        console.error('Project ID not found for saving auto polygon');
+        return;
+      }
+
+      try {
+        const result = await this.apiCall('/backend/api/polygon/create.php', 'POST', {
+          id_project: projectId,
+          nama_polygon: `Auto Polygon ${this.polygons.length + 1}`,
+          deskripsi: `Auto generated polygon - ${distanceInMeters}m`,
+          coordinate: JSON.stringify(this.autoPolygonPath),
+          panjang_meter: distanceInMeters
+        });
+
+        if (result.success) {
+          // Add to local polygons array
+          const newPolygonData = {
+            id: result.data?.id_polygon || Date.now(),
+            id_polygon: result.data?.id_polygon || Date.now(),
+            nama_polygon: `Auto Polygon ${this.polygons.length + 1}`,
+            deskripsi: `Auto generated polygon - ${distanceInMeters}m`,
+            coordinates: [...this.autoPolygonPath],
+            panjang_meter: distanceInMeters,
+            googlePolygon: this.autoPolygon
+          };
+
+          this.polygons.push(newPolygonData);
+
+          this.showToast('success', 'Auto Polygon Created', 
+            `Auto polygon created with distance: ${distanceInMeters}m`, 3000);
+          
+          console.log('Auto polygon saved to database successfully');
+        } else {
+          console.error('Failed to save auto polygon:', result.message);
+        }
+      } catch (error) {
+        console.error('Error saving auto polygon:', error);
       }
     },
 
@@ -1056,6 +1299,13 @@ export default {
       }
 
       console.log('Marker added successfully. Total markers:', this.markers.length);
+      
+      // Trigger auto polygon creation if we have 2 or more markers
+      if (this.markers.length >= 2) {
+        setTimeout(() => {
+          this.createAutoPolygon();
+        }, 1000); // Small delay to ensure marker is properly added
+      }
     },
 
     loadPolygonToMap(coordinates, mode = "view") {
@@ -1288,6 +1538,9 @@ export default {
         fullscreenControl: true
       });
 
+      // Initialize DirectionsService for auto polygon
+      this.directionsService = new google.maps.DirectionsService();
+
       // Event listeners
       this.map.addListener("click", (e) => {
         // Prevent interaction in read-only mode
@@ -1299,11 +1552,7 @@ export default {
         const lat = e.latLng.lat();
         const lng = e.latLng.lng();
 
-        if (this.drawingPolygon === true) {
-          this.addPolygonPoint(lat, lng);
-          return;
-        }
-        
+        // Only handle marker addition now - manual polygon creation disabled
         if (this.addingMarker === true) {
           this.addMarkerToMap(lat, lng);
           this.addingMarker = false;
@@ -1314,17 +1563,14 @@ export default {
 
       this.map.addListener("dblclick", (e) => {
         if (this.isViewMode) return;
-        if (this.drawingPolygon && this.polygonPath.length >= 3) {
-          e.stop();
-          this.finishPolygon();
-        }
+        // Double click disabled for manual polygon - auto polygon feature is active
+        console.log('ℹ️ Double click polygon creation disabled - auto polygon feature is active');
       });
 
       this.map.addListener("rightclick", (e) => {
         if (this.isViewMode) return;
-        if (this.drawingPolygon) {
-          this.clearPolygon();
-        }
+        // Right click polygon clearing disabled - auto polygon feature is active
+        console.log('ℹ️ Right click polygon clearing disabled - auto polygon feature is active');
       });
 
       console.log('Map initialized successfully');
@@ -1420,27 +1666,17 @@ export default {
     },
 
     togglePolygonMode() {
-      if (this.isViewMode) {
-        console.log('🔒 Polygon mode disabled in read-only mode');
-        return;
-      }
-      if (!this.drawingPolygon) {
-        this.drawingPolygon = true;
-        this.addingMarker = false;
-        this.clearPolygon();
-        console.log('POLYGON MODE AKTIF');
-      } else {
-        this.drawingPolygon = false;
-        console.log('POLYGON MODE NONAKTIF');
-      }
+      // Manual polygon mode disabled - now using auto polygon feature
+      this.showToast('info', 'Auto Polygon Active', 
+        'Manual polygon creation has been replaced with automatic polygon generation when 2+ markers are added.', 
+        4000);
+      console.log('ℹ️ Manual polygon mode disabled - auto polygon feature is active');
     },
 
     updateMapCursor() {
       if (this.map) {
-        if (this.drawingPolygon) {
+        if (this.addingMarker) {
           this.map.setOptions({ draggableCursor: 'crosshair' });
-        } else if (this.addingMarker) {
-          this.map.setOptions({ draggableCursor: 'default' });
         } else {
           this.map.setOptions({ draggableCursor: 'grab' });
         }
@@ -1448,23 +1684,11 @@ export default {
     },
 
     addPolygonPoint(lat, lng) {
-      this.polygonPath.push({ lat: lat, lng: lng });
-      
-      const circle = new google.maps.Circle({
-        center: { lat: lat, lng: lng },
-        radius: 3,
-        map: this.map,
-        fillColor: '#FF0000',
-        fillOpacity: 0.8,
-        strokeColor: '#FFFFFF',
-        strokeWeight: 2
-      });
-      
-      this.polygonMarkers.push(circle);
-      
-      if (this.polygonPath.length >= 2) {
-        this.drawLine();
-      }
+      // Manual polygon point addition disabled - now using auto polygon feature
+      console.log('ℹ️ Manual polygon point addition disabled - auto polygon feature is active');
+      this.showToast('info', 'Auto Polygon Active', 
+        'Manual polygon creation is disabled. Polygons are created automatically when you add 2+ markers.', 
+        3000);
     },
 
     drawLine() {
@@ -1484,73 +1708,11 @@ export default {
     },
 
     async finishPolygon() {
-      if (this.isViewMode) {
-        console.log('🔒 Finish polygon disabled in read-only mode');
-        return;
-      }
-      if (this.polygonPath.length < 3) {
-        this.showToast('warning', 'Insufficient Points', 'Minimal 3 titik diperlukan untuk membuat polygon', 4000);
-        return;
-      }
-
-      // Hapus garis sementara
-      if (this.polyline) {
-        this.polyline.setMap(null);
-        this.polyline = null;
-      }
-
-      // Save polygon to backend first
-      const projectId = this.$route.params.id || (this.currentProject ? this.currentProject.id_project : null);
-      if (!projectId) {
-        this.showToast('error', 'Project Not Found', 'Project ID tidak ditemukan', 4000);
-        return;
-      }
-
-      try {
-        const result = await this.apiCall('/backend/api/polygon/create.php', 'POST', {
-          id_project: projectId,
-          nama_polygon: `Polygon ${this.polygons.length + 1}`,
-          deskripsi: 'Auto generated polygon',
-          coordinate: JSON.stringify(this.polygonPath)
-        });
-
-        if (result.success) {
-          // Create local polygon data
-          const newPolygonData = {
-            id: result.data?.id_polygon || Date.now(),
-            nama_polygon: `Polygon ${this.polygons.length + 1}`,
-            deskripsi: 'Auto generated polygon',
-            coordinates: [...this.polygonPath],
-            area: null, // Remove area calculation for polylines
-            googlePolygon: null
-          };
-
-          // Add to polygons array
-          this.polygons.push(newPolygonData);
-
-          // Render the new polygon on map
-          this.renderSinglePolygonOnMap(newPolygonData, this.polygons.length - 1);
-
-          // Clean up drawing state
-          this.polygonMarkers.forEach(circle => circle.setMap(null));
-          this.polygonMarkers = [];
-          this.polygonPath = [];
-          this.drawingPolygon = false;
-          this.updateMapCursor();
-
-          this.showToast('success', 'Polygon Created', 
-            `Polygon berhasil dibuat dan disimpan!\nTotal polygons: ${this.polygons.length}`, 
-            4000);
-          console.log(`Polygon created successfully. Total polygons: ${this.polygons.length}`);
-        } else {
-          this.showToast('error', 'Save Failed', 
-            'Gagal menyimpan polygon: ' + (result.message || 'Unknown error'), 
-            5000);
-        }
-      } catch (error) {
-        console.error('Error saving polygon:', error);
-        this.showToast('error', 'Save Error', 'Terjadi kesalahan saat menyimpan polygon', 5000);
-      }
+      // Manual polygon finishing disabled - now using auto polygon feature
+      this.showToast('info', 'Auto Polygon Active', 
+        'Polygons are now created automatically when 2+ markers are added. No manual polygon creation needed.', 
+        4000);
+      console.log('ℹ️ Manual polygon finishing disabled - auto polygon feature handles polygon creation');
     },
 
     updatePolygonPath() {
@@ -2710,6 +2872,13 @@ h1 {
   color: #CCD2DE;
   font-size: 11px;
   margin: 2px 0 0 0;
+}
+
+.distance {
+  color: #4CAF50;
+  font-size: 11px;
+  margin: 2px 0 0 0;
+  font-weight: 600;
 }
 
 .item-actions {

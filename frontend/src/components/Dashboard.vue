@@ -514,12 +514,10 @@ export default {
     },
     
     logout() {
-      if (confirm('Are you sure you want to logout?')) {
         localStorage.removeItem('user');
         localStorage.removeItem('token');
         localStorage.removeItem('userId');
-        this.$router.push('/');
-      }
+        this.$router.push('/login');
     },
 
     // Toast notification methods

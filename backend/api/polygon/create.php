@@ -34,7 +34,23 @@ try {
     $polygon->id_project = $data->id_project;
     $polygon->nama_polygon = $data->nama_polygon ?? 'Polygon ' . date('Y-m-d H:i:s');
     $polygon->deskripsi = $data->deskripsi ?? 'Auto generated polygon';
-    $polygon->coordinate = is_string($data->coordinate) ? $data->coordinate : json_encode($data->coordinate);
+    
+    // Handle coordinate data properly for PostgreSQL
+    if (is_array($data->coordinate)) {
+        $polygon->coordinate = json_encode($data->coordinate);
+    } else if (is_string($data->coordinate)) {
+        // Validate if it's already valid JSON
+        $decoded = json_decode($data->coordinate);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            $polygon->coordinate = $data->coordinate;
+        } else {
+            $polygon->coordinate = json_encode($data->coordinate);
+        }
+    } else {
+        $polygon->coordinate = json_encode($data->coordinate);
+    }
+    
+    $polygon->panjang_meter = $data->panjang_meter ?? 0; 
     
     // Create polygon
     if ($polygon->create()) {
@@ -45,6 +61,7 @@ try {
                 'id_polygon' => $polygon->id_polygon ?? time(),
                 'id_project' => $polygon->id_project,
                 'nama_polygon' => $polygon->nama_polygon,
+                'panjang_meter' => $polygon->panjang_meter,
                 'coordinates' => json_decode($polygon->coordinate, true)
             ]
         ]);
