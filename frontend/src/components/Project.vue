@@ -159,7 +159,7 @@
             :class="{ active: addingMarker, disabled: isViewMode }"
             :disabled="isViewMode"
             :title="isViewMode ? 'Read-only mode' : 'Add Marker'">
-            <i class="fas fa-map-marker-alt"></i>
+            <i class="fas fa-project-diagram"></i>
           </button>
           <button 
             class="btn-icon" 
