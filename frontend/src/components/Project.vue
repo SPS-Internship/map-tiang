@@ -40,9 +40,15 @@
                   <i class="fas fa-map-marker-alt"></i>
                 </div>
                 <div class="item-details">
-                  <h5>{{ placemark.nama_placemark || `Tiang ${index + 1}` }}</h5>
+                  <h5>
+                    {{ placemark.nama_placemark || `Tiang ${index + 1}` }}
+                    <span v-if="placemark.hasODP" class="badge-odp">ODP</span>
+                  </h5>
                   <p class="coordinates">{{ placemark.lat.toFixed(6) }}, {{ placemark.lng.toFixed(6) }}</p>
                   <p class="address" v-if="placemark.address">{{ placemark.address }}</p>
+                  <p class="odp-extra" v-if="placemark.hasODP && placemark.odpInfo">
+                    ODP: {{ placemark.odpInfo.nama_odp || '-' }} · Layanan: {{ placemark.odpInfo.kd_layanan || '-' }} · WO: {{ placemark.odpInfo.status_wo || '-' }}
+                  </p>
                 </div>
               </div>
               <div class="item-actions">
@@ -93,8 +99,8 @@
               </div>
               <div class="item-details">
                 <h5>{{ polygonData.nama_polygon || `Polygon ${index + 1}` }}</h5>
-                <p class="coordinates">{{ polygonData.coordinates ? polygonData.coordinates.length : 0 }} points</p>
-                <p class="distance" v-if="polygonData.panjang_meter">Distance: {{ polygonData.panjang_meter.toFixed(2) }} meters</p>
+                <p class="coordinates">{{ polygonData.coordinates ? polygonData.coordinates.length : 0 }} Koordinat </p>
+                <p class="distance" v-if="polygonData.panjang_meter">Panjang: {{ polygonData.panjang_meter.toFixed(2) }} meters</p>
                 <p class="address" v-if="polygonData.deskripsi">{{ polygonData.deskripsi }}</p>
               </div>
             </div>
@@ -155,11 +161,29 @@
           />
           <button 
             class="btn-icon" 
+            @click="toggleAddPlacemark" 
+            :class="{ active: addingPlacemark, disabled: isViewMode }"
+            :disabled="isViewMode"
+            :title="isViewMode ? 'Read-only mode' : 'Add Just Placemark'">
+            <i class="fas fa-map-marker-alt"></i>
+          </button>
+          <button 
+            class="btn-icon" 
             @click="toggleAddMarker" 
             :class="{ active: addingMarker, disabled: isViewMode }"
             :disabled="isViewMode"
-            :title="isViewMode ? 'Read-only mode' : 'Add Marker'">
+            :title="isViewMode ? 'Read-only mode' : 'Add Polygon Area'">
             <i class="fas fa-project-diagram"></i>
+          </button>
+          <!-- Tombol Finish muncul ketika mode polygon aktif -->
+          <button 
+            v-if="addingMarker"
+            class="btn-success" 
+            @click="finishCurrentPolygon" 
+            :class="{ disabled: isViewMode }"
+            :disabled="isViewMode"
+            :title="isViewMode ? 'Read-only mode' : 'Finish Current Polygon'">
+            <i class="fas fa-check"></i> Finish
           </button>
           <button 
             class="btn-icon" 
@@ -328,6 +352,69 @@
       </div>
     </div>
 
+    <!-- ODP Modal (additive) -->
+    <div v-if="showOdpModal" class="modern-modal-overlay" @click="closeOdpModal">
+      <div class="modern-modal-content" @click.stop>
+        <div class="modern-modal-header">
+          <div class="modal-icon">
+            <i class="fas fa-box"></i>
+          </div>
+          <div class="modal-title-section">
+            <h3>Tambah ODP</h3>
+            <p>Lengkapi informasi ODP</p>
+          </div>
+          <button class="modern-btn-close" @click="closeOdpModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modern-modal-body">
+          <div class="modern-form-grid two-cols">
+            <div class="modern-form-group">
+              <label class="modern-label">ID Placemark</label>
+              <input type="text" class="modern-form-input" :value="odpForm.id_placemark || '-'" disabled />
+            </div>
+            <div class="modern-form-group">
+              <label class="modern-label">Nama ODP</label>
+              <input type="text" v-model="odpForm.nama_odp" class="modern-form-input" placeholder="Mis. ODP-XYZ" />
+            </div>
+            <div class="modern-form-group">
+              <label class="modern-label">Kode Layanan</label>
+              <select v-model="odpForm.kd_layanan" class="modern-form-input">
+                <option disabled value="">Pilih Layanan</option>
+                <option value="malang">Malang</option>
+                <option value="pasuruan">Pasuruan</option>
+                <option value="batu">Batu</option>
+              </select>
+            </div>
+            <div class="modern-form-group">
+              <label class="modern-label">Status WO</label>
+              <select v-model="odpForm.status_wo" class="modern-form-input">
+                <option disabled value="">Pilih Status</option>
+                <option value="sudah terpasang">Sudah terpasang</option>
+                <option value="belum terpasang">Belum terpasang</option>
+              </select>
+            </div>
+            <div class="modern-form-group">
+              <label class="modern-label">Status Tiang</label>
+              <select v-model="odpForm.status_tiang" class="modern-form-input">
+                <option disabled value="">Pilih Status Tiang</option>
+                <option value="ada tiang">Ada tiang</option>
+                <option value="tidak ada tiang">Tidak ada tiang</option>
+              </select>
+            </div>
+            <div class="modern-form-group" style="grid-column: 1 / -1;">
+              <label class="modern-label">Keterangan Lain</label>
+              <textarea v-model="odpForm.lain_lain" class="modern-form-textarea" rows="3" placeholder="Keterangan tambahan..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modern-modal-footer">
+          <button class="modern-btn-secondary" @click="closeOdpModal">Batal</button>
+          <button class="modern-btn-primary" @click="saveOdp">Simpan</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modern Toast Notifications -->
     <div class="toast-container">
       <div v-for="toast in toasts" :key="toast.id" 
@@ -390,6 +477,7 @@ export default {
       // Map related
       map: null,
       addingMarker: false,
+      addingPlacemark: false, // State untuk mode placemark saja
       drawingPolygon: false,
       placemarks: [],
       markers: [],
@@ -405,6 +493,15 @@ export default {
       autoPolygon: null,
       autoPolygonPath: [],
       directionsService: null,
+      // In-progress polygon aggregation (satu kotak per FINISH)
+      inProgressPolygon: {
+        path: [],
+        distance: 0
+      },
+      
+      // Polygon grouping untuk multiple polygons terpisah
+      currentPolygonGroup: 1, // ID grup polygon saat ini
+      finishedPolygonGroups: [], // Array grup polygon yang sudah selesai
       
       // Backend integration
       baseUrl: "http://localhost:8000",
@@ -453,7 +550,19 @@ export default {
       
       // Mode management
       projectMode: 'edit', // 'edit' atau 'view'
-      isReadOnly: false
+      isReadOnly: false,
+
+      // ODP state (additive)
+      showOdpModal: false,
+      odpForm: {
+        id_placemark: null,
+        nama_odp: '',
+        kd_layanan: '',
+        status_wo: '',
+        status_tiang: '',
+        lain_lain: ''
+      },
+      lastSavedPlacemark: null
     };
   },
   
@@ -465,6 +574,9 @@ export default {
           this.clearPolygon();
         } else if (this.addingMarker) {
           this.addingMarker = false;
+          this.updateMapCursor();
+        } else if (this.addingPlacemark) {
+          this.addingPlacemark = false;
           this.updateMapCursor();
         }
       }
@@ -868,7 +980,7 @@ export default {
         }
 
         // Tambah langsung ke array biar sidebar update otomatis
-        this.currentProject.placemarks.push({
+        const savedPm = {
           id_placemark: result.data.id_placemark, // ambil dari backend RETURNING
           nama_placemark: result.data.nama_placemark,
           deskripsi: result.data.deskripsi,
@@ -881,11 +993,67 @@ export default {
           kecamatan: result.data.kecamatan || '',
           kota: result.data.kota || '',
           provinsi: result.data.provinsi || ''
-        });
+        };
+        this.currentProject.placemarks.push(savedPm);
+        this.lastSavedPlacemark = savedPm;
+
+        // Show ODP confirmation and open modal if confirmed
+        const addOdp = await this.showConfirmation(
+          'Tambahkan ODP jika ada',
+          'Ingin menambahkan data ODP untuk placemark ini?',
+          '',
+          'Tambah',
+          'Tidak'
+        );
+        if (addOdp) {
+          this.odpForm = {
+            id_placemark: savedPm.id_placemark,
+            nama_odp: '',
+            kd_layanan: '',
+            status_wo: '',
+            status_tiang: '',
+            lain_lain: ''
+          };
+          this.showOdpModal = true;
+        }
       } else {
         console.error('Save placemark failed:', result.message);
         this.showToast('error', 'Save Failed', 'Gagal menyimpan marker: ' + result.message, 4000);
       }
+    },
+
+    async saveOdp() {
+      try {
+        if (!this.odpForm.id_placemark) {
+          this.showToast('error', 'ODP', 'ID Placemark tidak tersedia', 3000);
+          return;
+        }
+        const res = await this.apiCall('/backend/api/odp/create.php', 'POST', { ...this.odpForm });
+        if (res && res.success) {
+          this.showToast('success', 'ODP', 'ODP berhasil disimpan', 3000);
+          this.showOdpModal = false;
+          // Mark the related placemark in sidebar
+          let pmIdx = this.placemarks.findIndex(pm => pm.id_placemark === this.odpForm.id_placemark);
+          if (pmIdx === -1 && this.lastSavedPlacemark) {
+            const tLat = parseFloat(this.lastSavedPlacemark.latitude);
+            const tLng = parseFloat(this.lastSavedPlacemark.longitude);
+            pmIdx = this.placemarks.findIndex(pm => Math.abs(pm.lat - tLat) < 1e-6 && Math.abs(pm.lng - tLng) < 1e-6);
+          }
+          if (pmIdx !== -1) {
+            this.placemarks[pmIdx].hasODP = true;
+            this.placemarks[pmIdx].odpInfo = res.data;
+          }
+        } else {
+          this.showToast('error', 'ODP', res?.message || 'Gagal menyimpan ODP', 4000);
+        }
+      } catch (err) {
+        console.error(err);
+        this.showToast('error', 'ODP', err.message || 'Terjadi kesalahan', 4000);
+      }
+    },
+
+    closeOdpModal() {
+      this.showOdpModal = false;
     },
 
     // Load all placemarks
@@ -900,19 +1068,36 @@ export default {
           lng: parseFloat(p.longitude),
           deskripsi: p.deskripsi,
           created_at: p.created_at,
+          type: 'polygon',  // Default ke polygon untuk data existing
+          polygonGroup: 1   // Default ke grup 1 untuk data existing
         }));
 
         console.log('Placemarks loaded:', this.placemarks);
 
         // pasang ke map tapi jangan overwrite array
         this.placemarks.forEach(pm => {
-          this.addMarkerToMap(pm.lat, pm.lng, false, pm.nama_placemark);
+          // Gunakan warna sesuai type
+          if (pm.type === 'polygon') {
+            this.addMarkerToMap(pm.lat, pm.lng, false, pm.nama_placemark);
+          } else {
+            // Untuk placemark biru yang akan ditambahkan kemudian
+            this.addPlacemarkOnly(pm.lat, pm.lng, false);
+          }
         });
         
-        // Trigger auto polygon creation if we have 2+ placemarks
-        if (this.placemarks.length >= 2) {
+        // Update currentPolygonGroup untuk data yang sudah ada
+        const maxGroup = Math.max(...this.placemarks.map(pm => pm.polygonGroup || 1));
+        this.currentPolygonGroup = maxGroup + 1;
+        
+        // Trigger auto polygon creation if we have 2+ polygon placemarks in group 1
+        const group1Placemarks = this.placemarks.filter(pm => pm.type === 'polygon' && pm.polygonGroup === 1);
+        if (group1Placemarks.length >= 2) {
           setTimeout(() => {
+            // Sementara set current group ke 1 untuk render existing data
+            const originalGroup = this.currentPolygonGroup;
+            this.currentPolygonGroup = 1;
             this.createAutoPolygon();
+            this.currentPolygonGroup = originalGroup;
           }, 1000);
         }
       } else {
@@ -991,8 +1176,13 @@ export default {
     
     // Create auto polygon when 2+ placemarks exist
     async createAutoPolygon() {
-      if (this.placemarks.length < 2) {
-        console.log('Not enough placemarks for auto polygon');
+      // Filter hanya placemark yang untuk polygon (hijau) DAN dari grup saat ini
+      const currentGroupPlacemarks = this.placemarks.filter(pm => 
+        pm.type === 'polygon' && pm.polygonGroup === this.currentPolygonGroup
+      );
+      
+      if (currentGroupPlacemarks.length < 2) {
+        console.log('Not enough polygon placemarks in current group for auto polygon');
         return;
       }
 
@@ -1003,16 +1193,17 @@ export default {
       }
 
       try {
-        console.log('Creating auto polygon with', this.placemarks.length, 'placemarks');
+        console.log(`Creating auto polygon with ${currentGroupPlacemarks.length} placemarks from group ${this.currentPolygonGroup}`);
         
-        // Clear existing auto polygon
+        // Clear hanya polygon grup saat ini yang sedang dibuat (bukan yang sudah selesai)
         if (this.autoPolygon) {
           this.autoPolygon.setMap(null);
           this.autoPolygon = null;
         }
+        // CATATAN: Polygon yang sudah selesai tetap di map karena disimpan di finishedPolygonGroups
 
-        // Get coordinates from placemarks
-        const waypoints = this.placemarks.map(pm => ({
+        // Get coordinates from current group polygon placemarks only
+        const waypoints = currentGroupPlacemarks.map(pm => ({
           lat: pm.lat,
           lng: pm.lng
         }));
@@ -1026,7 +1217,7 @@ export default {
 
       } catch (error) {
         console.error('Error creating auto polygon:', error);
-        this.showToast('error', 'Auto Polygon Error', 'Failed to create automatic polygon', 3000);
+        this.showToast('error', 'Polygon Error', 'Failed to create automatic polygon', 3000);
       }
     },
 
@@ -1147,10 +1338,11 @@ export default {
         }
       });
 
-      // Create polyline (not filled polygon)
+      // Create polyline (not filled polygon) dengan warna berbeda per grup
+      const polygonColor = this.getPolygonColorForGroup(this.currentPolygonGroup);
       this.autoPolygon = new google.maps.Polyline({
         path: this.autoPolygonPath,
-        strokeColor: '#FF0000',
+        strokeColor: polygonColor,
         strokeOpacity: 0.8,
         strokeWeight: 4,
         editable: false,
@@ -1161,8 +1353,9 @@ export default {
       
       console.log(`Auto polygon created with distance: ${distanceInMeters} meters`);
       
-      // Save auto polygon to database
-      this.saveAutoPolygon(distanceInMeters);
+      // Simpan sementara; baru dipush ke sidebar saat finishCurrentPolygon()
+      this.inProgressPolygon.path = [...this.autoPolygonPath];
+      this.inProgressPolygon.distance = distanceInMeters;
     },
 
     // Calculate polygon distance using spherical geometry (fallback method)
@@ -1182,7 +1375,7 @@ export default {
     },
 
     // Save auto polygon to database
-    async saveAutoPolygon(distanceInMeters) {
+  async saveAutoPolygon(distanceInMeters) {
       const projectId = this.$route.params.id || (this.currentProject ? this.currentProject.id_project : null);
       if (!projectId) {
         console.error('Project ID not found for saving auto polygon');
@@ -1192,30 +1385,14 @@ export default {
       try {
         const result = await this.apiCall('/backend/api/polygon/create.php', 'POST', {
           id_project: projectId,
-          nama_polygon: `Auto Polygon ${this.polygons.length + 1}`,
+          nama_polygon: `Polygon ${this.polygons.length + 1}`,
           deskripsi: `Auto generated polygon - ${distanceInMeters}m`,
           coordinate: JSON.stringify(this.autoPolygonPath),
           panjang_meter: distanceInMeters
         });
 
         if (result.success) {
-          // Add to local polygons array
-          const newPolygonData = {
-            id: result.data?.id_polygon || Date.now(),
-            id_polygon: result.data?.id_polygon || Date.now(),
-            nama_polygon: `Auto Polygon ${this.polygons.length + 1}`,
-            deskripsi: `Auto generated polygon - ${distanceInMeters}m`,
-            coordinates: [...this.autoPolygonPath],
-            panjang_meter: distanceInMeters,
-            googlePolygon: this.autoPolygon
-          };
-
-          this.polygons.push(newPolygonData);
-
-          this.showToast('success', 'Auto Polygon Created', 
-            `Auto polygon created with distance: ${distanceInMeters}m`, 3000);
-          
-          console.log('Auto polygon saved to database successfully');
+          console.log('Auto polygon saved (deferred push already added on FINISH).');
         } else {
           console.error('Failed to save auto polygon:', result.message);
         }
@@ -1260,7 +1437,9 @@ export default {
           lng: lng,
           nama_placemark: `Tiang ${this.placemarks.length + 1}`,
           address: 'Loading address...',
-          id_placemark: Date.now()
+          id_placemark: Date.now(),
+          type: 'polygon',  // Marker untuk polygon
+          polygonGroup: this.currentPolygonGroup 
         });
 
         const geocoder = new google.maps.Geocoder();
@@ -1300,12 +1479,91 @@ export default {
 
       console.log('Marker added successfully. Total markers:', this.markers.length);
       
-      // Trigger auto polygon creation if we have 2 or more markers
-      if (this.markers.length >= 2) {
+      // Trigger auto polygon creation if we have 2 or more markers in current group
+      const currentGroupMarkers = this.placemarks.filter(pm => 
+        pm.type === 'polygon' && pm.polygonGroup === this.currentPolygonGroup
+      );
+      if (currentGroupMarkers.length >= 2) {
         setTimeout(() => {
           this.createAutoPolygon();
         }, 1000); // Small delay to ensure marker is properly added
       }
+    },
+
+    // Method untuk menambahkan placemark saja (tanpa auto polygon)
+    addPlacemarkOnly(lat, lng, save = true) {
+      if (!this.map) {
+        console.error('Map not initialized');
+        return;
+      }
+
+      console.log('Adding placemark only to map:', lat, lng);
+
+      const blueIcon = {
+        path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
+        fillColor: "#3BB142",
+        fillOpacity: 1,
+        strokeColor: "rgba(33, 150, 243, 0.25)",
+        strokeWeight: 2,
+        scale: 2,
+        anchor: { x: 12, y: 24 }
+      };
+      
+      const marker = new google.maps.Marker({
+        position: { lat, lng },
+        map: this.map,
+        icon: blueIcon,
+        draggable: true
+      });
+
+      this.markers.push(marker);
+
+      if (save) {
+        // Add to placemarks array for sidebar display
+        this.placemarks.push({
+          lat: lat,
+          lng: lng,
+          nama_placemark: `Placemark ${this.placemarks.length + 1}`,
+          address: 'Loading address...',
+          id_placemark: Date.now(),
+          type: 'placemark'  // Marker biru hanya untuk placemark
+        });
+
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+          if (status === "OK" && results[0]) {
+            const alamat = results[0].formatted_address;
+            
+            // Update address in placemarks array
+            const placemarkIndex = this.placemarks.length - 1;
+            if (this.placemarks[placemarkIndex]) {
+              this.placemarks[placemarkIndex].address = alamat;
+            }
+
+            // 🔹 Pecah address_components
+            const components = results[0].address_components;
+            let kelurahan = '', kecamatan = '', kota = '', provinsi = '';
+
+            components.forEach(c => {
+              if (c.types.includes("administrative_area_level_4")) kelurahan = c.long_name;
+              if (c.types.includes("administrative_area_level_3")) kecamatan = c.long_name;
+              if (c.types.includes("administrative_area_level_2")) kota = c.long_name;
+              if (c.types.includes("administrative_area_level_1")) provinsi = c.long_name;
+            });
+
+            this.savePlacemark(lat, lng, '', '', alamat, kelurahan, kecamatan, kota, provinsi);
+          } else {
+            this.savePlacemark(lat, lng);
+          }
+        });
+      }
+
+      console.log('Placemark added successfully. Total markers:', this.markers.length);
+      
+      // TIDAK ada auto polygon creation untuk placemark mode
+      this.showToast('success', 'Placemark Added', 
+        'Placemark berhasil ditambahkan tanpa polygon!', 
+        3000);
     },
 
     loadPolygonToMap(coordinates, mode = "view") {
@@ -1367,6 +1625,11 @@ export default {
       }
     },
 
+    getPolygonColorForGroup(groupNumber) {
+      const colors = ['#FF0000'];
+      return colors[(groupNumber - 1) % colors.length];
+    },
+    
     clearAllMapData() {
       // Clear markers
       this.markers.forEach(marker => marker.setMap(null));
@@ -1375,6 +1638,24 @@ export default {
       
       // Clear polygon
       this.clearPolygon();
+      
+      // Clear auto polygon yang sedang dibuat
+      if (this.autoPolygon) {
+        this.autoPolygon.setMap(null);
+        this.autoPolygon = null;
+      }
+      
+      // Clear finished polygons
+      this.finishedPolygonGroups.forEach(group => {
+        if (group.googlePolygon) {
+          group.googlePolygon.setMap(null);
+        }
+      });
+      this.finishedPolygonGroups = [];
+      this.currentPolygonGroup = 1; // Reset grup ke 1
+      // Reset in-progress polygon aggregator
+      this.inProgressPolygon.path = [];
+      this.inProgressPolygon.distance = 0;
       
       // Clear all multiple polygons
       this.clearAllPolygonsFromMap();
@@ -1399,14 +1680,13 @@ export default {
       // Clear existing polygons from map
       this.clearAllPolygonsFromMap();
 
-      // Render each polygon
+      // Render each polygon 
       this.polygons.forEach((polygonData, index) => {
-        if (polygonData.coordinates && polygonData.coordinates.length >= 3) {
+        if (polygonData.coordinates && polygonData.coordinates.length >= 1) {
           this.renderSinglePolygonOnMap(polygonData, index);
         }
       });
 
-      // Adjust map view to show all polygons
       this.fitMapToAllPolygons();
     },
 
@@ -1447,9 +1727,8 @@ export default {
 
     // Get different colors for polygons
     getPolygonColor(index) {
-      const colors = [
-        '#FF0000',
-      ];
+      // Pastikan selalu merah konsisten; gunakan array untuk mencegah indexing string menjadi karakter tunggal
+      const colors = ['#FF0000'];
       return colors[index % colors.length];
     },
 
@@ -1552,10 +1831,19 @@ export default {
         const lat = e.latLng.lat();
         const lng = e.latLng.lng();
 
-        // Only handle marker addition now - manual polygon creation disabled
+        // Handle marker addition for different modes
         if (this.addingMarker === true) {
           this.addMarkerToMap(lat, lng);
-          this.addingMarker = false;
+          // JANGAN matikan mode - biarkan tetap aktif sampai user klik finish
+          // this.addingMarker = false; // REMOVED: mode harus tetap aktif
+          this.updateMapCursor();
+          return;
+        }
+        
+        // Handle placemark addition (without auto polygon)
+        if (this.addingPlacemark === true) {
+          this.addPlacemarkOnly(lat, lng);
+          this.addingPlacemark = false;
           this.updateMapCursor();
           return;
         }
@@ -1641,6 +1929,9 @@ export default {
         // Clear all data
         this.clearAllMapData();
         this.savedProjects = [];
+        this.currentProjectId = null;
+        this.currentProject = null;
+        this.currentUser = null;
         
         // Clear storage
         localStorage.clear();
@@ -1660,9 +1951,89 @@ export default {
         return;
       }
       this.addingMarker = !this.addingMarker;
+      this.addingPlacemark = false; // Matikan mode placemark
       this.drawingPolygon = false;
       this.updateMapCursor();
       console.log('Toggle add marker:', this.addingMarker);
+    },
+
+    toggleAddPlacemark() {
+      if (this.isViewMode) {
+        console.log('🔒 Add placemark disabled in read-only mode');
+        return;
+      }
+      this.addingPlacemark = !this.addingPlacemark;
+      this.addingMarker = false; // Matikan mode marker
+      this.drawingPolygon = false;
+      this.updateMapCursor();
+      console.log('Toggle add placemark:', this.addingPlacemark);
+    },
+
+    // Method untuk menyelesaikan polygon grup saat ini
+    finishCurrentPolygon() {
+      if (this.isViewMode) {
+        console.log('🔒 Finish polygon disabled in read-only mode');
+        return;
+      }
+
+      // Ambil placemark grup saat ini
+      const currentGroupPlacemarks = this.placemarks.filter(pm => 
+        pm.type === 'polygon' && pm.polygonGroup === this.currentPolygonGroup
+      );
+
+      if (currentGroupPlacemarks.length < 2) {
+        this.showToast('warning', 'Insufficient Markers', 
+          'Minimal 2 marker diperlukan untuk membuat polygon!', 
+          3000);
+        return;
+      }
+
+      // Ambil data in-progress (jarak & path)
+      const totalDistance = this.inProgressPolygon.distance || 0;
+      const pathCopy = [...this.inProgressPolygon.path];
+
+      // Push SATU kotak summary ke polygons
+      this.polygons.push({
+        id: Date.now(),
+        id_polygon: Date.now(),
+        nama_polygon: `Polygon ${this.polygons.length + 1}`,
+        deskripsi: `Total ${currentGroupPlacemarks.length} titik - ${totalDistance}m`,
+        coordinates: pathCopy,
+        panjang_meter: totalDistance,
+        googlePolygon: this.autoPolygon
+      });
+
+      // Simpan grup selesai
+      this.finishedPolygonGroups.push({
+        groupId: this.currentPolygonGroup,
+        placemarks: [...currentGroupPlacemarks],
+        finishedAt: new Date(),
+        distance: totalDistance
+      });
+
+      // Persist final polygon ke backend sekali
+      this.saveAutoPolygon(totalDistance);
+
+      // Reset temp
+      this.inProgressPolygon.path = [];
+      this.inProgressPolygon.distance = 0;
+
+      // JANGAN hapus autoPolygon dari map - biarkan tetap terlihat
+      // this.autoPolygon.setMap(null); // REMOVED: polygon harus tetap terlihat
+      
+      // Reset autoPolygon reference untuk grup baru
+      this.autoPolygon = null;
+
+      // MATIKAN mode polygon dan pindah ke grup baru
+      this.addingMarker = false; // Mode polygon MATI
+      this.currentPolygonGroup += 1; // Increment untuk grup baru
+      this.updateMapCursor(); // Update cursor karena mode sudah mati
+
+      console.log(`✅ Polygon group ${this.currentPolygonGroup - 1} finished! Mode disabled. Next group will be ${this.currentPolygonGroup}`);
+      
+      this.showToast('success', 'Polygon Finished', 
+        `Polygon grup ${this.currentPolygonGroup - 1} berhasil diselesaikan!\n\nMode polygon dimatikan. Klik tombol polygon lagi untuk memulai grup baru.`, 
+        5000);
     },
 
     togglePolygonMode() {
@@ -1675,7 +2046,7 @@ export default {
 
     updateMapCursor() {
       if (this.map) {
-        if (this.addingMarker) {
+        if (this.addingMarker || this.addingPlacemark) {
           this.map.setOptions({ draggableCursor: 'crosshair' });
         } else {
           this.map.setOptions({ draggableCursor: 'grab' });
@@ -1745,49 +2116,6 @@ export default {
       }
       
       this.polygonPath = [];
-    },
-
-    initMap() {
-      this.map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: -7.983908, lng: 112.621391 },
-        zoom: 13,
-        mapTypeControl: true,
-        streetViewControl: true,
-        fullscreenControl: true
-      });
-
-      // Event listeners
-      this.map.addListener("click", (e) => {
-        const lat = e.latLng.lat();
-        const lng = e.latLng.lng();
-
-        if (this.drawingPolygon === true) {
-          this.addPolygonPoint(lat, lng);
-          return;
-        }
-        
-        if (this.addingMarker === true) {
-          this.addMarkerToMap(lat, lng);
-          this.addingMarker = false;
-          this.updateMapCursor();
-          return;
-        }
-      });
-
-      this.map.addListener("dblclick", (e) => {
-        if (this.drawingPolygon && this.polygonPath.length >= 3) {
-          e.stop();
-          this.finishPolygon();
-        }
-      });
-
-      this.map.addListener("rightclick", (e) => {
-        if (this.drawingPolygon) {
-          this.clearPolygon();
-        }
-      });
-
-      console.log('Map initialized');
     },
 
     addMarker(lat, lng) {
@@ -1905,8 +2233,16 @@ export default {
                 id_placemark: pm.id_placemark
               });
               
-              // Add marker to map
-              this.addMarkerToMap(parseFloat(pm.latitude), parseFloat(pm.longitude), false);
+              // Tampilkan marker sesuai mode untuk menghindari penumpukan:
+              // Mode READ → marker biru (placemark)
+              // Mode EDIT → marker hijau (untuk polygon)
+              if (this.isViewMode) {
+                // Mode READ: tampilkan marker biru (placemark)
+                this.addPlacemarkOnly(parseFloat(pm.latitude), parseFloat(pm.longitude), false);
+              } else {
+                // Mode EDIT: tampilkan marker hijau (marker untuk polygon)
+                this.addMarkerToMap(parseFloat(pm.latitude), parseFloat(pm.longitude), false);
+              }
             });
             console.log(`✅ Loaded ${this.placemarks.length} placemarks`);
           } else {
@@ -2814,6 +3150,25 @@ h1 {
 
 .sidebar-item:hover {
   background: rgba(229, 238, 241, 0.05);
+}
+
+.badge-odp {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0a5e2a;
+  background: #d4f6df;
+  border: 1px solid #9fe2b2;
+  border-radius: 10px;
+  vertical-align: middle;
+}
+
+.odp-extra {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #cfe9ff;
 }
 
 .item-info {
@@ -3805,4 +4160,33 @@ input:focus {
     justify-content: center;
   }
 }
+/* ===== SINGLE OVERLAP TOAST MODE (Additive, no JS changes) ===== */
+/* Menyembunyikan semua kecuali toast terakhir; tampil bergantian di pojok kanan atas */
+.toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 380px;
+  max-width: 90vw;
+  min-height: 100px; /* stabil agar tidak loncat */
+}
+.toast-container > .toast {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  width: 100%;
+  margin: 0 !important;
+  opacity: 0;
+  transform: translateY(-6px) scale(.97);
+  transition: opacity .35s ease, transform .35s ease;
+}
+.toast-container > .toast:last-child {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  position: relative; /* biarkan paling atas secara normal */
+}
+.toast-container > .toast:not(:last-child) {
+  pointer-events: none;
+  filter: blur(2px);
+}
+/* ============================================================= */
 </style>

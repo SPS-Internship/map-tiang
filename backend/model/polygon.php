@@ -1,6 +1,5 @@
 <?php
 class Polygon {
-    // Database connection and table name
     private $conn;
     private $table_name = "polygon";
     
