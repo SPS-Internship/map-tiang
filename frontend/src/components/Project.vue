@@ -47,7 +47,7 @@
                   <p class="coordinates">{{ placemark.lat.toFixed(6) }}, {{ placemark.lng.toFixed(6) }}</p>
                   <p class="address" v-if="placemark.address">{{ placemark.address }}</p>
                   <p class="odp-extra" v-if="placemark.hasODP && placemark.odpInfo">
-                    ODP: {{ placemark.odpInfo.nama_odp || '-' }} · Layanan: {{ placemark.odpInfo.kd_layanan || '-' }} · WO: {{ placemark.odpInfo.status_wo || '-' }}
+                    ODP: {{ placemark.odpInfo.nama_odp || '-' }} - Layanan: {{ placemark.odpInfo.kd_layanan || '-' }} - WO: {{ placemark.odpInfo.status_wo || '-' }}
                   </p>
                 </div>
               </div>
@@ -375,7 +375,20 @@
             </div>
             <div class="modern-form-group">
               <label class="modern-label">Nama ODP</label>
-              <input type="text" v-model="odpForm.nama_odp" class="modern-form-input" placeholder="Mis. ODP-XYZ" />
+              <select v-model="odpSelectedName" class="modern-form-input">
+                <option value="">-- Pilih dari daftar --</option>
+                <option v-for="name in odpOptions" :key="name" :value="name">{{ name }}</option>
+              </select>
+              <div style="margin-top:6px;color:#1e7e34;font-size:12px;">
+                Atau tambahkan baru di bawah ini
+              </div>
+              <input
+                type="text"
+                v-model="odpNewName"
+                class="modern-form-input"
+                placeholder="Tambah nama ODP baru (opsional)"
+                style="margin-top:6px;"
+              />
             </div>
             <div class="modern-form-group">
               <label class="modern-label">Kode Layanan</label>
@@ -562,7 +575,14 @@ export default {
         status_tiang: '',
         lain_lain: ''
       },
-      lastSavedPlacemark: null
+      lastSavedPlacemark: null,
+      // Dropdown opsi ODP yang pernah dibuat (reuse)
+      odpOptions: [],
+      // Keputusan pra-konfirmasi saat klik "Tambah Mark"
+      odpIntentAfterPlacement: null,
+      // UI state untuk pilihan ODP: pilih dari daftar atau ketik baru
+      odpSelectedName: '',
+      odpNewName: ''
     };
   },
   
@@ -617,6 +637,9 @@ export default {
         this.loadProjectData(projectId);
       }, 1000);
     }
+
+    // Preload opsi ODP untuk dropdown reuse
+    this.loadOdpOptions();
   },
 
   computed: {
@@ -997,15 +1020,18 @@ export default {
         this.currentProject.placemarks.push(savedPm);
         this.lastSavedPlacemark = savedPm;
 
-        // Show ODP confirmation and open modal if confirmed
-        const addOdp = await this.showConfirmation(
-          'Tambahkan ODP jika ada',
-          'Ingin menambahkan data ODP untuk placemark ini?',
-          '',
-          'Tambah',
-          'Tidak'
-        );
-        if (addOdp) {
+        // Buka ODP modal berdasar keputusan pra-konfirmasi; jika belum ada, fallback konfirmasi
+        let openOdp = this.odpIntentAfterPlacement;
+        if (openOdp === null) {
+          openOdp = await this.showConfirmation(
+            'Tambahkan ODP jika ada',
+            'Ingin menambahkan data ODP untuk placemark ini?',
+            '',
+            'Tambah',
+            'Tidak'
+          );
+        }
+        if (openOdp) {
           this.odpForm = {
             id_placemark: savedPm.id_placemark,
             nama_odp: '',
@@ -1014,6 +1040,9 @@ export default {
             status_tiang: '',
             lain_lain: ''
           };
+          await this.loadOdpOptions();
+          this.odpSelectedName = '';
+          this.odpNewName = '';
           this.showOdpModal = true;
         }
       } else {
@@ -1028,10 +1057,24 @@ export default {
           this.showToast('error', 'ODP', 'ID Placemark tidak tersedia', 3000);
           return;
         }
+        // Tentukan nama ODP dari pilihan atau input baru
+        const chosenName = (this.odpNewName && this.odpNewName.trim().length > 0)
+          ? this.odpNewName.trim()
+          : (this.odpSelectedName || '').trim();
+        if (!chosenName) {
+          this.showToast('warning', 'Validasi', 'Pilih nama ODP dari daftar atau isi nama ODP baru.', 3500);
+          return;
+        }
+        this.odpForm.nama_odp = chosenName;
         const res = await this.apiCall('/backend/api/odp/create.php', 'POST', { ...this.odpForm });
         if (res && res.success) {
           this.showToast('success', 'ODP', 'ODP berhasil disimpan', 3000);
           this.showOdpModal = false;
+          // Refresh opsi reuse setelah menyimpan
+          this.loadOdpOptions();
+          // Reset UI input
+          this.odpSelectedName = '';
+          this.odpNewName = '';
           // Mark the related placemark in sidebar
           let pmIdx = this.placemarks.findIndex(pm => pm.id_placemark === this.odpForm.id_placemark);
           if (pmIdx === -1 && this.lastSavedPlacemark) {
@@ -1054,6 +1097,22 @@ export default {
 
     closeOdpModal() {
       this.showOdpModal = false;
+    },
+
+    // Muat daftar opsi ODP (nama/model) dari database untuk dropdown reuse
+    async loadOdpOptions() {
+      try {
+        const res = await this.apiCall('/backend/api/odp/read.php', 'GET');
+        if (res && res.success && Array.isArray(res.data)) {
+          const names = res.data
+            .map(r => (r.nama_odp || '').trim())
+            .filter(n => n.length > 0);
+          // Unique & sorted
+          this.odpOptions = Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+        }
+      } catch (e) {
+        console.error('Gagal memuat opsi ODP:', e);
+      }
     },
 
     // Load all placemarks
@@ -1945,7 +2004,7 @@ export default {
 
     // =============== ORIGINAL METHODS (Updated) ===============
 
-    toggleAddMarker() {
+    async toggleAddMarker() {
       if (this.isViewMode) {
         console.log('🔒 Add marker disabled in read-only mode');
         return;
@@ -1955,6 +2014,21 @@ export default {
       this.drawingPolygon = false;
       this.updateMapCursor();
       console.log('Toggle add marker:', this.addingMarker);
+
+      // Saat mengaktifkan mode Tambah Mark, minta konfirmasi ingin tambah ODP
+      if (this.addingMarker) {
+        const confirmed = await this.showConfirmation(
+          'Tambah ODP?',
+          'Apakah ingin menambahkan ODP untuk mark yang akan dibuat?',
+          '',
+          'Ya',
+          'Tidak'
+        );
+        this.odpIntentAfterPlacement = !!confirmed;
+      } else {
+        // Reset niat ketika mematikan mode
+        this.odpIntentAfterPlacement = null;
+      }
     },
 
     toggleAddPlacemark() {
@@ -2215,7 +2289,7 @@ export default {
             // Clear existing placemarks
             this.placemarks = [];
             
-            this.currentProject.placemarks.forEach(pm => {
+              this.currentProject.placemarks.forEach(pm => {
               // Add to placemarks array for sidebar display with consistent structure
               this.placemarks.push({
                 lat: parseFloat(pm.latitude),
@@ -2229,8 +2303,11 @@ export default {
                 kecamatan: pm.kecamatan || '',
                 kota: pm.kota || '',
                 provinsi: pm.provinsi || '',
-                id: pm.id_placemark,
-                id_placemark: pm.id_placemark
+                  id: pm.id_placemark,
+                  id_placemark: pm.id_placemark,
+                  // tampilkan badge ODP di sidebar jika data ODP tersedia di payload project (opsional)
+                  hasODP: !!pm.odp,
+                  odpInfo: pm.odp || null
               });
               
               // Tampilkan marker sesuai mode untuk menghindari penumpukan:
@@ -2245,6 +2322,9 @@ export default {
               }
             });
             console.log(`✅ Loaded ${this.placemarks.length} placemarks`);
+
+            // Tandai ODP pada setiap placemark (agar badge tampil di READ & EDIT)
+            await this.attachOdpFlagsToPlacemarks();
           } else {
             this.placemarks = [];
             console.log('ℹ️ No placemarks found in this project');
@@ -2258,6 +2338,27 @@ export default {
         }
       } catch (err) {
         console.error("❌ Error loading project data:", err);
+      }
+    },
+
+    // Ambil data ODP per placemark untuk menandai badge di sidebar (READ & EDIT)
+    async attachOdpFlagsToPlacemarks() {
+      try {
+        const tasks = this.placemarks.map(async (pm, idx) => {
+          if (!pm.id_placemark) return;
+          const res = await this.apiCall(`/backend/api/odp/read.php?id_placemark=${pm.id_placemark}`, 'GET');
+          if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+            // Vue 3: penambahan properti pada object reactive sudah terdeteksi otomatis
+            this.placemarks[idx].hasODP = true;
+            this.placemarks[idx].odpInfo = res.data[0];
+          } else {
+            this.placemarks[idx].hasODP = false;
+            this.placemarks[idx].odpInfo = null;
+          }
+        });
+        await Promise.all(tasks);
+      } catch (e) {
+        console.warn('Gagal melabeli ODP pada placemarks:', e);
       }
     },
 
