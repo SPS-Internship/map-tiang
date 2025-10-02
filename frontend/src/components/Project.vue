@@ -5,7 +5,6 @@
       <!-- Project Info -->
       <div class="project-info">
         <h3>{{ currentProject ? currentProject.nama_project : 'Current Project' }}</h3>
-        <p class="project-id">ID: {{ currentProject ? currentProject.id_project : 'N/A' }}</p>
       </div>
 
       <!-- Placemarks Section -->
