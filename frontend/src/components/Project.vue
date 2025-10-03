@@ -40,7 +40,7 @@
                 </div>
                 <div class="item-details">
                   <h5>
-                    {{ placemark.nama_placemark || `Tiang ${index + 1}` }}
+                    {{ placemark.nama_placemark || (placemark.type === 'placemark' ? `Tiang Lepas ${index + 1}` : `Tiang Terhubung ${index + 1}`) }}
                     <span v-if="placemark.hasODP" class="badge-odp">ODP</span>
                   </h5>
                   <p class="coordinates">{{ placemark.lat.toFixed(6) }}, {{ placemark.lng.toFixed(6) }}</p>
@@ -76,7 +76,7 @@
         </div>
       </div>
 
-      <!-- Polygons Section -->
+      <!-- Polygons Section -->`
       <div class="sidebar-section">
         <div class="section-header" @click="toggleSection('polygons')">
           <h4><i class="fas fa-project-diagram"></i> Polygons ({{ polygons.length }})</h4>
@@ -983,7 +983,7 @@ export default {
         id_project: projectId,
         latitude: lat,
         longitude: lng,
-        nama_placemark: name && name.trim() !== '' ? name : `Marker ${Date.now()}`,
+        nama_placemark: name && name.trim() !== '' ? name : `Tiang Lepas ${Date.now()}`,
         deskripsi: description || 'Auto generated placemark',
         alamat,
         kelurahan,
@@ -1490,10 +1490,13 @@ export default {
 
       if (save) {
         // Add to placemarks array for sidebar display
+        // Decide default name for green (polygon) marker
+        const defaultName = `Tiang Terhubung ${this.placemarks.length + 1}`;
+
         this.placemarks.push({
           lat: lat,
           lng: lng,
-          nama_placemark: `Tiang ${this.placemarks.length + 1}`,
+          nama_placemark: defaultName,
           address: 'Loading address...',
           id_placemark: Date.now(),
           type: 'polygon',  // Marker untuk polygon
@@ -1522,9 +1525,9 @@ export default {
               if (c.types.includes("administrative_area_level_1")) provinsi = c.long_name;
             });
 
-            this.savePlacemark(lat, lng, '', '', alamat, kelurahan, kecamatan, kota, provinsi);
+            this.savePlacemark(lat, lng, defaultName, '', alamat, kelurahan, kecamatan, kota, provinsi);
           } else {
-            this.savePlacemark(lat, lng);
+            this.savePlacemark(lat, lng, defaultName);
           }
 
           console.log(JSON.stringify({
@@ -1578,10 +1581,13 @@ export default {
 
       if (save) {
         // Add to placemarks array for sidebar display
+        // Default name for blue (placemark-only) marker
+        const defaultName = `Tiang Lepas ${this.placemarks.length + 1}`;
+
         this.placemarks.push({
           lat: lat,
           lng: lng,
-          nama_placemark: `Placemark ${this.placemarks.length + 1}`,
+          nama_placemark: defaultName,
           address: 'Loading address...',
           id_placemark: Date.now(),
           type: 'placemark'  // Marker biru hanya untuk placemark
@@ -1609,9 +1615,9 @@ export default {
               if (c.types.includes("administrative_area_level_1")) provinsi = c.long_name;
             });
 
-            this.savePlacemark(lat, lng, '', '', alamat, kelurahan, kecamatan, kota, provinsi);
+            this.savePlacemark(lat, lng, defaultName, '', alamat, kelurahan, kecamatan, kota, provinsi);
           } else {
-            this.savePlacemark(lat, lng);
+            this.savePlacemark(lat, lng, defaultName);
           }
         });
       }
@@ -2437,7 +2443,7 @@ export default {
       // Set data untuk modal edit
       this.editPlacemarkData = {
         id_placemark: placemark.id_placemark || placemark.id,
-        nama_placemark: placemark.nama_placemark || placemark.name_placemark || `Tiang ${index + 1}`,
+        nama_placemark: placemark.nama_placemark || placemark.name_placemark || (placemark.type === 'placemark' ? `Tiang Lepas ${index + 1}` : `Tiang Terhubung ${index + 1}`),
         deskripsi: placemark.deskripsi || '',
         alamat: placemark.alamat || placemark.address || '',
         kelurahan: placemark.kelurahan || '',
@@ -2518,7 +2524,7 @@ export default {
       if (!placemark) return;
 
       // Show confirmation toast instead of confirm dialog
-      const placemarkName = placemark.nama_placemark || placemark.name_placemark || `Tiang ${index + 1}`;
+  const placemarkName = placemark.nama_placemark || placemark.name_placemark || (placemark.type === 'placemark' ? `Tiang Lepas ${index + 1}` : `Tiang Terhubung ${index + 1}`);
       
       // Create a more modern confirmation system
       const confirmed = await this.showConfirmation(
@@ -2742,7 +2748,7 @@ body {
 }
 
 .logo {
-  color: #CCD2DE;
+  color: #E5EEF1;
   font-size: 28px;
   font-weight: bold;
   text-align: center;
@@ -2751,11 +2757,11 @@ body {
 }
 
 .logo .net {
-  color: #CCD2DE;
+  color: #E5EEF1;
 }
 
 .logo .map {
-  color: #CCD2DE;
+  color: #E5EEF1;
 }
 
 .logo i {

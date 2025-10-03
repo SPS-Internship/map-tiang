@@ -21,7 +21,7 @@ try {
 
     if ($id_project > 0) {
         // Query untuk specific project
-        $query = "SELECT id_polygon, id_project, nama_polygon, deskripsi, coordinate, created_at 
+    $query = "SELECT id_polygon, id_project, nama_polygon, deskripsi, coordinate, panjang_meter, created_at 
                   FROM polygon 
                   WHERE id_project = :id_project
                   ORDER BY created_at DESC";
@@ -30,7 +30,7 @@ try {
         $stmt->bindParam(":id_project", $id_project, PDO::PARAM_INT);
     } else {
         // Query untuk semua polygon
-        $query = "SELECT id_polygon, id_project, nama_polygon, deskripsi, coordinate, created_at 
+    $query = "SELECT id_polygon, id_project, nama_polygon, deskripsi, coordinate, panjang_meter, created_at 
                   FROM polygon 
                   ORDER BY created_at DESC";
         

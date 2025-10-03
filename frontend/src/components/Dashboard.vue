@@ -651,11 +651,11 @@ body {
 }
 
 .logo .net {
-  color: #CCD2DE;
+  color: #E5EEF1;
 }
 
 .logo .map {
-  color: #CCD2DE;
+  color: #E5EEF1;
 }
 
 

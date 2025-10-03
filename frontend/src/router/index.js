@@ -4,6 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../components/Login.vue'
 import Dashboard from '../components/Dashboard.vue'
 import Project from '../components/Project.vue'
+import Boq from '../components/Boq.vue'
 
 const routes = [
   {
@@ -16,12 +17,18 @@ const routes = [
     name: 'Dashboard',
     component: Dashboard
   },
-  {
-    path: '/project/:id',
-    name: 'ProjectEdit',
-    component: Project,
-    props: true
-  }
+    {
+      path: '/project/:id',
+      name: 'ProjectEdit',
+      component: Project,
+      props: true
+    },
+    {
+      path: '/boq/:id',
+      name: 'Boq',
+      component: Boq,
+      props: true
+    }
 ]
 
 const router = createRouter({

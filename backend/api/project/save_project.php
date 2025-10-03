@@ -107,6 +107,101 @@ try {
                        WHERE id_project = ? RETURNING id_project");
     $stmt->execute([$nama_project, $deskripsi, $id_project]);
 
+    // Jika ada payload BoQ, simpan juga ke tabel boq (schema sesuai tabel Anda)
+    if (isset($data->boq) && isset($data->boq->rows) && is_array($data->boq->rows)) {
+        require_once __DIR__ . '/../../model/boq.php';
+        $boqModel = new Boq($pdo);
+        $boqModel->deleteByProject($id_project);
+
+        // Load referensi polygon dan placemark untuk project ini
+        $stmtPg = $pdo->prepare("SELECT id_polygon, panjang_meter FROM polygon WHERE id_project = :p");
+        $stmtPg->execute([':p' => $id_project]);
+        $polygons = $stmtPg->fetchAll(PDO::FETCH_ASSOC);
+
+        $stmtPm = $pdo->prepare("SELECT id_placemark FROM placemark WHERE id_project = :p");
+        $stmtPm->execute([':p' => $id_project]);
+        $placemarks = $stmtPm->fetchAll(PDO::FETCH_ASSOC);
+        $placemarkIds = array_map(function($r){ return (int)$r['id_placemark']; }, $placemarks);
+
+        // ODP set untuk status per placemark
+        $odpSet = [];
+        if (count($placemarkIds) > 0) {
+            $in = implode(',', array_fill(0, count($placemarkIds), '?'));
+            $q = $pdo->prepare("SELECT DISTINCT id_placemark FROM odp WHERE id_placemark IN ($in)");
+            $q->execute($placemarkIds);
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $odpSet[(int)$r['id_placemark']] = true;
+            }
+        }
+
+        // Index payload by label uraian (lowercase)
+        $byLabel = [];
+        foreach ($data->boq->rows as $r) {
+            $label = isset($r->uraian) ? strtolower(trim($r->uraian)) : '';
+            if ($label !== '') $byLabel[$label] = $r;
+        }
+
+        // 1) Kabel FO 24 core -> per polygon
+        foreach ($polygons as $pg) {
+            $row = $byLabel['kabel fo 24 core'] ?? null;
+            if (!$row) continue;
+            $vol = (float)($pg['panjang_meter'] ?? 0);
+            if ($vol <= 0) continue;
+            $boqModel->create([
+                'id_polygon'   => (int)$pg['id_polygon'],
+                'satuan'       => 'm',
+                'volume'       => $vol,
+                'harga_satuan' => (float)($row->harga_satuan ?? 0),
+                'status_odp'   => '-',
+            ]);
+        }
+
+        // 2) Kabel Drop FO -> dibagi rata ke tiap placemark
+        $rowDrop = $byLabel['kabel drop fo'] ?? null;
+        if ($rowDrop && count($placemarkIds) > 0) {
+            $totalDrop = (float)($rowDrop->volume ?? 0);
+            $per = $totalDrop > 0 ? $totalDrop / count($placemarkIds) : 0;
+            foreach ($placemarkIds as $pid) {
+                if ($per <= 0) break;
+                $boqModel->create([
+                    'id_placemark' => $pid,
+                    'satuan'       => 'm',
+                    'volume'       => $per,
+                    'harga_satuan' => (float)($rowDrop->harga_satuan ?? 0),
+                    'status_odp'   => '-',
+                ]);
+            }
+        }
+
+        // 3) Tiang Besi 9 m -> 1 unit per placemark, status ODP per placemark
+        $rowTiang = $byLabel['tiang besi 9 m'] ?? null;
+        if ($rowTiang) {
+            foreach ($placemarkIds as $pid) {
+                $boqModel->create([
+                    'id_placemark' => $pid,
+                    'satuan'       => 'unit',
+                    'volume'       => 1,
+                    'harga_satuan' => (float)($rowTiang->harga_satuan ?? 0),
+                    'status_odp'   => isset($odpSet[$pid]) ? 'odp' : '-',
+                ]);
+            }
+        }
+
+        // 4) Pondasi Beton -> 1 unit per placemark, status ODP per placemark
+        $rowPondasi = $byLabel['pondasi beton'] ?? null;
+        if ($rowPondasi) {
+            foreach ($placemarkIds as $pid) {
+                $boqModel->create([
+                    'id_placemark' => $pid,
+                    'satuan'       => 'unit',
+                    'volume'       => 1,
+                    'harga_satuan' => (float)($rowPondasi->harga_satuan ?? 0),
+                    'status_odp'   => isset($odpSet[$pid]) ? 'odp' : '-',
+                ]);
+            }
+        }
+    }
+
     $pdo->commit();
 
     sendResponse('success', 'Project berhasil disimpan', array(
