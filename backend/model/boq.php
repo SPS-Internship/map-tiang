@@ -9,7 +9,6 @@ class Boq {
     public $satuan;
     public $volume;
     public $harga_satuan;
-    public $status_odp;
     public $id_odp;
     public $created_at;
 
@@ -37,7 +36,6 @@ class Boq {
         $columns[] = 'satuan';        $params[':satuan'] = (string)($row['satuan'] ?? '');        $values[] = ':satuan';
         $columns[] = 'volume';        $params[':volume'] = (float)($row['volume'] ?? 0);          $values[] = ':volume';
         $columns[] = 'harga_satuan';  $params[':harga']  = (float)($row['harga_satuan'] ?? 0);     $values[] = ':harga';
-        $columns[] = 'status_odp';    $params[':sodp']   = isset($row['status_odp']) ? (string)$row['status_odp'] : null; $values[] = ':sodp';
         if (array_key_exists('id_odp', $row)) { $columns[] = 'id_odp'; $params[':id_odp'] = $row['id_odp'] !== null ? (int)$row['id_odp'] : null; $values[] = ':id_odp'; }
 
         $sql = "INSERT INTO {$this->table_name} (" . implode(',', $columns) . ") VALUES (" . implode(',', $values) . ") RETURNING id_boq";
